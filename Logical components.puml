@@ -1,0 +1,184 @@
+@startuml ApigeeLogicalModel
+
+' skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor<<App>> #GhostWhite
+  BackgroundColor<<Backend>> #WhiteSmoke
+'   BackgroundColor<<Runtime>> #CCE6FF
+  BackgroundColor<<Runtime>> #AliceBlue
+  BackgroundColor<<Service>> #FFF2CC
+'   BackgroundColor<<DataStore>> #D9EAD3
+  BackgroundColor<<DataStore>> #HoneyDew
+'   BackgroundColor<<Tool>> #E6E6E6
+  BackgroundColor<<Tool>> #Lavender
+  BackgroundColor<<ControlPlane>> #FCE5CD
+}
+
+title Apigee Logical Architecture
+
+' Define components
+component "Mobile App\n(Consumer)" as Mobile <<App>>
+component "Runtime Gateway" as Gateway <<Runtime>>
+component "Backend Services\n(Enterprise)" as Backend <<Backend>>
+component "Runtime Data Store" as RuntimeDS <<DataStore>>
+component "Analytics Services" as Analytics <<Service>>
+component "Apigee API" as ApigeeAPI <<ControlPlane>>
+component "Management DB" as MgmtDB <<DataStore>>
+component "Apigee Console" as ApigeeConsole <<Tool>>
+component "Developer Portal" as DevPortal <<Tool>>
+
+' Show relationships
+Mobile ---> Gateway : Runtime traffic
+Gateway --> Backend : Runtime traffic
+
+Gateway --> RuntimeDS
+Gateway ..> Analytics
+ApigeeAPI --> Gateway
+
+ApigeeAPI --> MgmtDB
+ApigeeConsole --> ApigeeAPI
+DevPortal --> ApigeeAPI
+
+
+@enduml
+
+@startuml ApigeeLogicalModelExtended
+
+skinparam BackgroundColor white
+
+' skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor<<App>> #GhostWhite
+  BackgroundColor<<Backend>> #WhiteSmoke
+'   BackgroundColor<<Runtime>> #CCE6FF
+  BackgroundColor<<Runtime>> #AliceBlue
+  BackgroundColor<<Service>> #FFF2CC
+'   BackgroundColor<<DataStore>> #D9EAD3
+  BackgroundColor<<DataStore>> #HoneyDew
+'   BackgroundColor<<Tool>> #E6E6E6
+  BackgroundColor<<Tool>> #Lavender
+  BackgroundColor<<ControlPlane>> #FCE5CD
+}
+
+skinparam database {
+    BackgroundColor<<DataStore>> #HoneyDew
+}
+
+' skinparam Arrow {
+'     Color White
+' }
+
+
+title Apigee Logical Architecture (Extended Version)
+
+' Define components
+component "Mobile App\n(Consumer)" as Mobile <<App>>
+component "Runtime Gateway" as Gateway <<Runtime>>
+component Gateway {
+    process "* Detect changes\n* Pull changes\n* Update itself" as gw_detect
+    component "Message Processor" as MsgProc {
+        process "Execute APIs\nin response to\nAPI requests" as runapis
+    }
+}
+
+component "Backend Services\n(Enterprise)" as Backend <<Backend>>
+database "Runtime Data Store" as RuntimeDS <<DataStore>>
+database RuntimeDS {
+    database X [
+        API keys
+        OAuth tokens
+    ]
+    ' storage "API keys\nOAuth tokens"
+    storage Cache
+    storage Configuration
+}
+component "Analytics Services" as Analytics <<Service>>
+component Analytics {
+    storage "Info about APIs, apps,\nbackend calls" as events
+    usecase "Analytics Reports" as Reporting
+    usecase "Visualization" as Viz
+    Reporting --> events
+    Viz --> events
+}
+component "Apigee API" as ApigeeAPI <<ControlPlane>>
+component ApigeeAPI {
+    
+    usecase "Mgmt of API Platform" as cp_apimgmt
+    usecase "<b>deploy / undeploy\nof API Proxy revisions" as cp_deployment
+    usecase "Monitor APIs" as cp_monitoring
+    usecase "Configure Environments" as cp_config_envs
+    usecase "Manage users" as cp_usermgmt
+    cp_apimgmt -r-> cp_deployment : <<include>>
+    cp_apimgmt --> cp_monitoring : <<include>>
+    cp_apimgmt --> cp_config_envs : <<include>>
+    cp_apimgmt --> cp_usermgmt : <<include>>
+}
+
+note right of ApigeeAPI
+<b>Control Plane
+Publicly documented
+Used for DevSecOps:
+* automation (CI/CD)
+* securing & monitoring
+end note
+
+component "Management DB" as MgmtDB <<DataStore>>
+component MgmtDB {
+    database Configs [
+        Config changes
+    ]
+}
+component "Apigee Console" as ApigeeConsole <<Tool>>
+component ApigeeConsole {
+    usecase "Manage" as console_mgmt
+    usecase "APIs Lifecycle" as console_dev
+    usecase "API Operations" as console_ops
+    usecase "API Security"   as console_sec
+    usecase "Analytics / Reporting" as console_rep
+}
+console_mgmt --> console_dev
+console_mgmt --> console_ops
+console_mgmt --> console_sec
+' console_mgmt --> console_rep
+' console_dev -[hidden]- console_ops
+' console_ops -[hidden]- console_sec
+' console_sec -[hidden]- console_rep
+
+component "Developer Portal" as DevPortal <<Tool>>
+component DevPortal {
+    usecase "Publish Documentation" as portal_publish_docs
+    usecase "signup" as portal_newusers
+    usecase "<b>Register Apps\nto use API products" as portal_manage_apps
+}
+
+' Show relationships
+' Mobile -[hidden]- Gateway
+Mobile -r-> Gateway : Runtime traffic
+Gateway -l-> Backend : Runtime traffic
+
+Gateway --> RuntimeDS
+' Gateway .d.> Analytics
+runapis ..> Analytics : events sent async
+ApigeeAPI ---> Gateway
+gw_detect -u-> ApigeeAPI : pull changes
+
+ApigeeAPI --> MgmtDB
+ApigeeConsole ---> ApigeeAPI
+DevPortal --> ApigeeAPI
+
+actor Dev
+actor Ops
+actor Sec
+actor/ Biz
+Dev --> ApigeeConsole
+Ops --> ApigeeConsole
+Sec --> ApigeeConsole
+Biz --> ApigeeConsole
+
+actor "API team" as API_team
+actor "API users" as API_users
+API_team --> portal_publish_docs
+API_users --> portal_newusers
+API_users --> portal_manage_apps
+
+@enduml
