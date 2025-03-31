@@ -1,0 +1,79 @@
+title Apigee Edge Logical Architecture (OPDK v4.52.02)
+
+' Define external consumer
+component "Mobile App\n(Consumer)" as Mobile <<App>>
+
+' Define the runtime layer
+package "Runtime Cluster" {
+    component "Edge Router" as Router <<Runtime>>
+    component "Message Processors" as MsgProc <<Runtime>> {
+      process "Executes API Proxies,\nOAuth validation,\nRate limiting" as MP_Process
+    }
+    ' Cassandra cluster used by runtime: note that each node runs two Cassandra instances
+    database "Cassandra Cluster\n(Primary & Secondary)\n[API keys, OAuth tokens,\nconfiguration, caches]" as Cassandra <<DataStore>>
+    note right of Cassandra
+      * Uses native protocol (TLS) for external access.
+      * Internal node-to-node comm. via Gossip (TLS)
+    end note
+    ' ZooKeeper used for cluster coordination, co-located with Cassandra nodes
+    component "ZooKeeper Cluster" as ZK <<Tool>>
+}
+
+' Define backend enterprise systems
+component "Backend Services\n(Enterprise)" as Backend <<Backend>>
+
+' Define analytics components
+package "Analytics Cluster" {
+    component "Analytics Services" as Analytics <<Service>> {
+      storage "API events, usage data" as AnalyticsEvents
+    }
+    database "PostgreSQL Analytics DB\n(Analytics Data Store)" as AnalyticsDB <<DataStore>>
+}
+
+' Define the control plane components
+package "Control Plane" {
+    component "Management API Server" as MgmtAPI <<ControlPlane>> {
+      usecase "Deploy/Undeploy API Proxies\nMonitor & Configure" as mgmt_uc
+    }
+    ' Management DB used for configuration, deployments, state, etc.
+    database "PostgreSQL Management DB\n(Config & State)" as MgmtDB <<DataStore>>
+    ' Qpid is used as an asynchronous messaging broker for config change propagation.
+    component "Qpid Broker" as Qpid <<Tool>>
+}
+
+' Define administrative and developer tools
+component "Apigee Console" as ApigeeConsole <<Tool>>
+component "Developer Portal" as DevPortal <<Tool>>
+
+'--------------------
+' Define connections
+'--------------------
+
+' Consumer to runtime
+Mobile --> Router : HTTPS (TLS)
+
+' Runtime internal communications
+Router --> MsgProc : HTTPS (TLS)
+MsgProc --> Backend : HTTP/REST (TLS)
+MsgProc --> Cassandra : Cassandra native protocol (TLS)
+' Note: Gossip is used only among Cassandra nodes (not shown as external connection)
+MsgProc --> ZK : ZooKeeper API (TCP, TLS) 
+
+' Async event flow from runtime to analytics
+MP_Process ..> Analytics : Async events (HTTP/TLS)
+Analytics --> AnalyticsDB : SQL/REST API (TLS)
+
+' Control plane to runtime and coordination components
+MgmtAPI --> MsgProc : Pull config changes\n(REST API, mTLS)
+MgmtAPI --> ZK : ZooKeeper API (TCP, TLS)
+
+' Control plane internal communications
+MgmtAPI --> MgmtDB : JDBC/SQL (TLS)
+MgmtAPI --> Qpid : AMQP (mTLS)
+MsgProc --> Qpid : AMQP (mTLS)
+
+' Admin and developer interactions
+ApigeeConsole --> MgmtAPI : REST API (TLS)
+DevPortal --> MgmtAPI : REST API (TLS)
+
+@enduml
