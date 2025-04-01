@@ -1,0 +1,144 @@
+@startuml ApigeeEdgeOPDK_Distributed_LayoutImproved_Labels_Corrected
+
+' Define custom styling based on the original request
+skinparam component {
+  BackgroundColor<<App>> #GhostWhite
+  BackgroundColor<<Backend>> #WhiteSmoke
+  BackgroundColor<<Runtime>> #AliceBlue
+  BackgroundColor<<Service>> #FFF2CC
+  BackgroundColor<<DataStore>> #HoneyDew
+  BackgroundColor<<Tool>> #Lavender
+  BackgroundColor<<ControlPlane>> #FCE5CD
+  BackgroundColor<<Coordination>> #FFE0B2 ' Added for ZooKeeper
+  BackgroundColor<<Messaging>> #E1BEE7  ' Added for Qpid
+  BackgroundColor<<Directory>> #C5CAE9   ' Added for OpenLDAP
+}
+skinparam database {
+    BackgroundColor<<DataStore>> #HoneyDew
+}
+skinparam node {
+    borderColor Gray
+    backgroundColor WhiteSmoke
+}
+' Removed invalid skinparam componentLabel and databaseLabel
+
+title Apigee Edge OPDK - Distributed Deployment Architecture (Labels - Corrected)
+
+' External Systems / Users
+actor "API Consumer\n(e.g., Mobile App)" as Consumer <<App>>
+actor "API Developer / Admin / Ops" as Operator
+
+' Backend System
+component "Backend Services\n(Enterprise)" as Backend <<Backend>>
+
+' === Edge Gateway (API Services) Module ===
+node "Edge Gateway Nodes" {
+
+    component "Router" as Router <<Runtime>> {
+        label "NGINX based.\nHandles incoming API traffic.\nRoutes requests to Message Processors."
+    }
+
+    component "Message Processor" as MsgProc <<Runtime>> {
+         label "Java process.\nExecutes API Proxies (Policies).\nManages runtime request lifecycle."
+    }
+
+    component "Management Server" as MgmtSvr <<ControlPlane>> {
+         label "Core control plane component.\nProvides Edge Management API (REST).\nOrchestrates deployments."
+    }
+
+    component "Edge UI" as EdgeUI <<Tool>> {
+        label "Built on Management API"
+    }
+
+    database "Apache Cassandra Cluster" as CassandraDB <<DataStore>> {
+        label "Stores: Runtime config, Tokens,\nKVMs, Keys, Policies, Keystores etc."
+    }
+
+    component "Apache ZooKeeper Ensemble" as ZooKeeper <<Coordination>> {
+        label "Distributed coordination\n& change notifications."
+    }
+
+    component "OpenLDAP Server" as OpenLDAP <<Directory>> {
+         label "Stores User Credentials\nfor Edge UI/API access."
+    }
+
+    ' --- Suggest horizontal alignment ---
+    Router -[hidden]r- MsgProc
+    CassandraDB -[hidden]r- ZooKeeper
+    ZooKeeper -[hidden]r- OpenLDAP
+
+}
+
+' === Edge Analytics Module ===
+node "Edge Analytics Nodes" {
+    frame "Qpid Messaging" {
+        component "Qpid Server" as QpidServer <<Service>> {
+            label "Apigee Java Service\nmanaging Qpid Broker"
+        }
+        component "Apache Qpid Broker" as QpidBroker <<Messaging>> {
+            label "AMQP Message Broker\n(Transient Event Storage)"
+        }
+        QpidServer -d-> QpidBroker : Forward Events\n(AMQP)
+    }
+
+    frame "Postgres Database" {
+         component "Postgres Server" as PgServer <<Service>> {
+            label "Apigee Java Service\nmanaging Postgres DB"
+         }
+         database "PostgreSQL Database" as PgDB <<DataStore>> {
+              label "Stores Aggregated\nAnalytics Facts/Metrics"
+         }
+         PgServer -d-> PgDB : Write Aggregated Analytics\n(JDBC)
+    }
+    ' --- Suggest vertical alignment ---
+    QpidServer -[hidden]d- PgServer
+    QpidBroker -[hidden]d- PgDB
+}
+
+' === Optional Developer Portal ===
+node "Developer Services Nodes" {
+    component "Developer Portal" as DevPortal <<Tool>> {
+         label "Typically Drupal/PHP based.\nUses Mgmt API for App/Key sync."
+    }
+}
+
+
+' === Relationships with Layout Hints ===
+
+' --- Runtime Traffic Flow (Left-to-Right emphasis) ---
+Consumer ----> Router : API Calls\n(HTTPS)
+Router -r-> MsgProc : Proxied API Requests\n(HTTP/HTTPS)
+MsgProc -r-> Backend : Backend API Calls\n(HTTP/HTTPS)
+
+' --- Runtime Data/Config Access (MP interacting downwards/sideways) ---
+MsgProc -d-> CassandraDB : Read Keys/Tokens/Policies/KVMs\n(CQL/Thrift over TLS/mTLS?)
+MsgProc -d-> ZooKeeper : Receive Config Change Notifications\n(ZK Protocol over TLS/mTLS?)
+
+' --- Analytics Data Flow (MP downwards to Analytics Node) ---
+MsgProc -d..> QpidServer : Analytics Events\n(AMQP over TLS)
+
+' --- Analytics Internal Flow ---
+QpidBroker -d..> PgServer : Consume Events\n(AMQP)
+
+' --- Management/Configuration Flow ---
+Operator --> EdgeUI : Management Tasks\n(HTTPS)
+Operator --> MgmtSvr : Direct API Calls / CI/CD\n(REST/HTTPS)
+EdgeUI -d-> MgmtSvr : Edge Management API Calls\n(REST/HTTPS)
+DevPortal -u-> MgmtSvr : Portal <-> Edge Sync\n(REST/HTTPS)
+MgmtSvr -d-> CassandraDB : Write/Read Configurations\n(CQL/Thrift over TLS/mTLS?)
+MgmtSvr -d-> ZooKeeper : Write Config Status / Trigger Notifications\n(ZK Protocol over TLS/mTLS?)
+MgmtSvr -r-> OpenLDAP : Authenticate/Authorize Users\n(LDAP/LDAPS)
+MgmtSvr -l-> PgServer : Read Analytics Data for UI/API\n(JDBC/Internal API?)
+
+' --- Component Coordination/Notifications ---
+ZooKeeper -u-> Router : Config Change Notification\n(ZK Protocol over TLS/mTLS?)
+' ZK -> MP link defined earlier with -d-> from MP
+
+' --- Place External Components and Nodes using Hidden Links ---
+MsgProc -[hidden]r- Backend
+Consumer -[hidden]r- Router
+Operator -[hidden]d- EdgeUI
+MsgProc -[hidden]d- QpidServer
+MgmtSvr -[hidden]r- DevPortal
+
+@enduml
