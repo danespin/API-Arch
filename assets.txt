@@ -1,0 +1,120 @@
+Apigee assets
+
+
+Okay, here is a breakdown of the data assets stored within an Apigee Edge Private Cloud (OPDK) system, categorized by the primary datastore or data source component.
+
+**1. Apache Cassandra Cluster (`<<DataStore>>`)**
+
+*   **Primary Role:** Highly available, distributed persistence for core configuration and runtime state needed by Gateway components (MPs, Routers).
+*   **Assets Stored:**
+    *   **API Proxy Configurations:** Definitions of API proxies, including flows, policies, resources (all revisions, both deployed and undeployed).
+    *   **API Products:** Definitions of API products, including associated proxies, environments, quota settings, and custom attributes.
+    *   **Developer Applications (Apps):** Registrations of applications created by developers, including associated API products, credentials (API Keys/Secrets), and callback URLs.
+    *   **API Keys & Secrets:** Credentials issued to developer apps for authentication.
+    *   **OAuth Tokens:** Access tokens, refresh tokens, and authorization codes generated during OAuth flows (both persistent and potentially cached).
+    *   **Key-Value Maps (KVMs):** Environment, Organization, and Proxy-scoped key-value pairs used for configuration lookups at runtime.
+    *   **Target Servers:** Definitions of backend target servers, including hostnames, ports, and SSL configurations, used for dynamic routing.
+    *   **Virtual Hosts:** Configuration details for the host aliases, ports, and TLS settings the Routers listen on.
+    *   **Environments Configuration:** Settings specific to deployment environments (e.g., base paths, virtual hosts).
+    *   **Organization Configuration:** Top-level settings for the Apigee organization.
+    *   **Developer Information:** Details about registered developers (though often basic, linking to Apps).
+    *   **Distributed Quota/Counter State:** Runtime counters tracking usage against defined quotas for API Products or Proxies.
+    *   **Cache Metadata/Entries:** Some types of distributed cache entries configured via policies.
+    *   **Analytics Metadata (Partial):** Some configuration or metadata related to analytics might be mirrored or stored here for runtime access or consistency.
+    *   **Policy & Resource Files:** JavaScript, Python, Java callout JARs, WSDLs, XSDs associated with API proxies.
+
+**2. PostgreSQL Database (`<<DataStore>>`)**
+
+*   **Primary Role:** Stores aggregated analytics data processed from raw events. Optimized for reporting and querying.
+*   **Assets Stored:**
+    *   **Aggregated Analytics Facts:** Pre-calculated metrics (sum/average/min/max/percentiles) for traffic volume, target latency, total latency, error counts, cache hits, etc.
+    *   **Analytics Dimensions Data:** Tables representing dimensions like API Proxy, API Product, Developer App, Developer, Time (day, hour, minute), Target Server, Geolocation, etc., used to slice and dice the facts.
+    *   **Reporting Structures:** Data potentially transformed or summarized specifically for the Edge Analytics UI or Management API reporting endpoints.
+    *   **Monetization Data (if installed):** Rate plans, billing documents, transaction records (though you specified excluding this).
+
+**3. Apache ZooKeeper Ensemble (`<<Coordination>>`)**
+
+*   **Primary Role:** Distributed coordination, configuration change notification, leader election, and storing small, critical pieces of state. *Does not store large configuration blobs.*
+*   **Assets Stored:**
+    *   **Configuration Pointers/Status:** Paths (ZNodes) indicating the currently deployed revision of an API proxy in an environment. Changes to these paths trigger notifications.
+    *   **Component Liveness/Status:** Information about which Routers and MPs are active and healthy.
+    *   **Locking Information:** Distributed locks used for tasks like ensuring only one component performs a specific initialization action.
+    *   **Leader Election Data:** State related to electing leaders among component groups (e.g., for certain background tasks run by MPs or Management Servers).
+    *   **Small Configuration Snippets:** Potentially very small, frequently accessed configuration details might reside here, but large configs are typically in Cassandra.
+
+**4. OpenLDAP Server (`<<Directory>>`)**
+
+*   **Primary Role:** Stores user identity and credential information for authentication and authorization into the Edge platform (UI and Management API).
+*   **Assets Stored:**
+    *   **User Accounts:** Usernames and hashed passwords for administrators and organization users.
+    *   **Role Assignments:** Mapping of users to Apigee roles (e.g., Organization Administrator, Operations Administrator, Business User, API Developer).
+    *   **Group Memberships (Optional):** Can be used for role mapping if configured.
+    *   **Sysadmin Credentials:** Credentials for the system administrator account(s).
+
+**5. Qpid Broker / Qpid Server (`<<Messaging>> / <<Service>>`)**
+
+*   **Primary Role:** Transient message queuing for decoupling Message Processors (which generate analytics data) from the Analytics processing components (Postgres Server).
+*   **Assets Stored (Transient):**
+    *   **Raw Analytics Events:** Serialized messages containing detailed metadata about each API request processed by the Message Processors (timestamps, URLs, status codes, latencies, policy execution details, etc.). These messages are queued for asynchronous processing and aggregation into PostgreSQL. *Data is typically short-lived here, existing only until consumed.* Can be persisted to disk temporarily by the broker if consumers are offline or slow.
+
+**6. Message Processor (MP) Local Cache (`<<Runtime>>` - In-Memory/Disk)**
+
+*   **Primary Role:** Improve runtime performance by caching frequently accessed data locally, reducing latency and load on Cassandra/ZK.
+*   **Assets Stored (Cached/Transient):**
+    *   Validated OAuth Tokens / API Keys
+    *   Resolved KVM entries
+    *   Parts of API Proxy/Policy configurations
+    *   Resolved Target Server endpoints
+    *   Results from Service Callout policies (if configured)
+    *   Other policy-specific cached data
+
+**7. Router Local Cache (`<<Runtime>>` - In-Memory/Disk)**
+
+*   **Primary Role:** Improve routing performance by caching routing configurations locally.
+*   **Assets Stored (Cached/Transient):**
+    *   Virtual Host configurations
+    *   Resolved routing rules derived from deployed proxies and base paths
+
+This list covers the primary data assets and their typical locations within an Apigee Edge OPDK deployment. The exact distribution and use can sometimes be influenced by specific configurations or policy implementations.
+
+
+----
+
+You are absolutely correct to bring that up! Keystores and Truststores are crucial configuration assets in Apigee Edge for managing TLS/SSL security, and they were indeed missing from the initial inventory breakdown.
+
+They belong in the **Apache Cassandra Cluster**.
+
+Here's why and how they fit in:
+
+1.  **Nature of the Data:** Keystores contain private keys and their associated public certificate chains (the identity of an Apigee endpoint). Truststores contain trusted Certificate Authority (CA) certificates used to validate certificates presented by external clients or backend servers. This is persistent *configuration data* necessary for secure runtime operations.
+2.  **Management:** You manage Keystores and Truststores via the Edge Management API (and consequently the Edge UI). You upload certificate files and private keys through these interfaces.
+3.  **Persistence Requirement:** This configuration needs to be reliably stored and accessible to the runtime components (Routers and Message Processors) that handle TLS handshakes.
+4.  **Cassandra's Role:** As the primary distributed datastore for Apigee configuration (like API Proxies, KVMs, Target Servers, Virtual Hosts), Cassandra is the designated storage location for Keystore and Truststore definitions and their associated certificate/key material. The actual private keys are typically stored encrypted within Cassandra.
+5.  **Runtime Usage:**
+    *   **Routers:** Load certificates and keys from Keystores referenced by Virtual Hosts to handle incoming TLS connections from clients (Northbound TLS). They load certificates from Truststores referenced by Virtual Hosts if Client Authentication (mTLS) is enabled.
+    *   **Message Processors:** Load certificates from Truststores referenced by Target Servers to validate backend server certificates (Southbound TLS). They load certificates and keys from Keystores referenced by Target Servers if mTLS is required for the backend connection.
+
+**Updated Cassandra Asset Inventory:**
+
+**Apache Cassandra Cluster (`<<DataStore>>`)**
+
+*   **Assets Stored:**
+    *   API Proxy Configurations
+    *   API Products
+    *   Developer Applications (Apps)
+    *   API Keys & Secrets
+    *   OAuth Tokens
+    *   Key-Value Maps (KVMs)
+    *   Target Servers *(References Truststores/Keystores for Southbound TLS)*
+    *   Virtual Hosts *(References Keystores/Truststores for Northbound TLS)*
+    *   **Keystores:** Definitions and associated certificate chains and encrypted private keys.
+    *   **Truststores:** Definitions and associated trusted CA certificates.
+    *   Environments Configuration
+    *   Organization Configuration
+    *   Developer Information
+    *   Distributed Quota/Counter State
+    *   Cache Metadata/Entries (Distributed types)
+    *   Analytics Metadata (Partial)
+    *   Policy & Resource Files (JS, Python, Java JARs, WSDLs, XSDs)
+
+So, the Keystores and Truststores you manage via the Apigee API are persisted as configuration assets within the Cassandra database cluster.
