@@ -1,0 +1,1051 @@
+<html>
+
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=utf-8">
+<meta name=Generator content="Microsoft Word 15 (filtered)">
+<title>EJBCA Enterprise Deployment Architecture - Claude</title>
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Consolas;
+	panose-1:2 11 6 9 2 2 4 3 2 4;}
+@font-face
+	{font-family:Georgia;
+	panose-1:2 4 5 2 5 4 5 2 3 3;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:.2pt;
+	margin-left:.4pt;
+	text-indent:-.4pt;
+	line-height:105%;
+	font-size:6.0pt;
+	font-family:"Georgia",serif;
+	color:#A6A5A3;}
+h1
+	{mso-style-link:"Heading 1 Char";
+	margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5pt;
+	text-indent:-.5pt;
+	line-height:107%;
+	page-break-after:avoid;
+	font-size:6.5pt;
+	font-family:"Georgia",serif;
+	color:#A6A5A3;}
+span.Heading1Char
+	{mso-style-name:"Heading 1 Char";
+	mso-style-link:"Heading 1";
+	font-family:"Georgia",serif;
+	color:#A6A5A3;
+	font-weight:bold;}
+.MsoChpDefault
+	{font-size:12.0pt;}
+.MsoPapDefault
+	{margin-bottom:8.0pt;
+	line-height:115%;}
+@page WordSection1
+	{size:8.5in 11.0in;
+	margin:1.1pt 9.45pt 2.45pt 3.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+ /* List Definitions */
+ ol
+	{margin-bottom:0in;}
+ul
+	{margin-bottom:0in;}
+-->
+</style>
+
+</head>
+
+<body lang=ES-MX style='word-wrap:break-word'>
+
+<div class=WordSection1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:1.25pt;
+margin-left:0in;text-indent:0in;line-height:107%'><b><span lang=EN-US
+style='font-size:9.0pt;line-height:107%'>EJBCA Enterprise Threat Model Analysis</span></b></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:1.6pt;
+margin-left:-.25pt;text-indent:-.5pt;line-height:107%'>
+
+<table cellpadding=0 cellspacing=0>
+ <tr>
+  <td width=30 height=0></td>
+ </tr>
+ <tr>
+  <td></td>
+  <td><img width=812 height=995
+  src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image001.gif"></td>
+ </tr>
+</table>
+
+<br clear=ALL>
+<b><span lang=EN-US style='font-size:7.5pt;line-height:107%'>Luna S790 HSM
+&amp; MariaDB Enterprise on RHEL 8</span></b></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>Executive Summary</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><span lang=EN-US>This
+comprehensive threat model analyzes EJBCA Enterprise Edition deployed with Luna
+S790 HSM and MariaDB Enterprise on RHEL 8 servers, following security best
+practices and vendor recommendations.<br clear=all style='page-break-before:
+always'>
+</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:602.55pt;margin-bottom:
+0in;margin-left:-3.0pt;text-indent:0in;line-height:107%'>
+
+<table cellpadding=0 cellspacing=0 align=left>
+ <tr>
+  <td width=30 height=0></td>
+ </tr>
+ <tr>
+  <td></td>
+  <td><img width=812 height=1056
+  src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image002.gif"></td>
+ </tr>
+</table>
+
+<br clear=ALL>
+<span lang=EN-US><br clear=all style='page-break-before:always'>
+</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>1.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Legitimate admin gains physical access to HSM facility</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>2.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Uses administrative privileges to extract root CA keys (if HSM is
+misconfigured)</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>3.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Creates unauthorized certificates with root authority</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Covers tracks by modifying audit logs</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>UC-002: Database Injection
+Attack</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> External Attacker <b>Affected Assets:</b> AD-001-010, AS-004,
+AL-001-003 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>1.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Exploits SQL injection in web interface</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>2.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Gains database access through application credentials</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>3.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Extracts certificate data
+and configuration</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Modifies certificate status or revocation data</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>UC-003: HSM Network
+Interception</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> MITM Actor (insider with network access) <b>Affected Assets:</b>
+AS-001-003, AS-005, AL-004 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>1.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Positions on HSM network
+segment</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>2.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Intercepts PKCS#11
+communications</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>3.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Attempts to capture
+cryptographic material</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Performs replay attacks on HSM operations</span></p>
+
+<h1 style='margin-left:-.25pt'>
+
+<table cellpadding=0 cellspacing=0>
+ <tr>
+  <td width=30 height=0></td>
+ </tr>
+ <tr>
+  <td></td>
+  <td><img width=812 height=659
+  src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image003.gif"></td>
+ </tr>
+</table>
+
+<br clear=ALL>
+<span lang=EN-US>UC-004: Certificate Authority Spoofing</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> Advanced Persistent Threat <b>Affected Assets:</b> AS-001-002,
+AD-003, AD-006, AL-001 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>1.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Compromises EJBCA
+application server</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>2.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Installs malicious CA
+certificate</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>3.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Issues fraudulent
+certificates</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Distributes false certificates through legitimate channels</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>UC-005: Audit Log Tampering</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> Privileged Database Administrator <b>Affected Assets:</b>
+AL-001-010, AS-007 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.5pt;text-indent:-6.15pt'><span style='line-height:105%'>1.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Uses database administrator
+privileges</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.5pt;text-indent:-6.15pt'><span style='line-height:105%'>2.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Directly modifies audit log
+tables</p>
+
+<p class=MsoNormal style='margin-left:10.5pt;text-indent:-6.15pt;line-height:
+136%'><span style='line-height:136%'>3.<span style='font:7.0pt "Times New Roman"'>
+</span></span><span lang=EN-US>Removes evidence of unauthorized activities 4. </span>Bypasses
+integrity protection mechanisms</p>
+
+<h1 style='margin-left:-.25pt'>UC-006: Protocol Downgrade Attack</h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> Man-in-the-Middle Attacker <b>Affected Assets:</b> AS-008, AD-005,
+AC-003-006 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>1.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Intercepts client-server
+communication</p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>2.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Forces use of weaker enrollment protocols</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.55pt;text-indent:-6.2pt'><span style='line-height:105%'>3.<span
+style='font:7.0pt "Times New Roman"'> </span></span>Captures or modifies
+certificate requests</p>
+
+<p class=MsoNormal style='margin-left:10.55pt;text-indent:-6.2pt'><span
+style='line-height:105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span>Issues
+unauthorized certificates</p>
+
+<h1 style='margin-left:-.25pt'>UC-007: Cryptographic Weakness Exploitation</h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> Advanced Cryptanalyst/Nation-State Actor <b>Affected Assets:</b>
+AS-001-012, AD-005, AL-001 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>1.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Analyzes certificate serial numbers and cryptographic material from
+non-FIPS systems</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>2.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Identifies patterns in weak random number generation</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>3.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Predicts future cryptographic values (keys, nonces, certificates)</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Forges certificates or breaks encryption using reduced key space</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>5.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Compromises entire PKI trust model through cryptanalytic attack</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>UC-008: Entropy Starvation
+Attack</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> Internal Malicious Process/Malware <b>Affected Assets:</b> AS-004,
+AS-007, AS-008, AS-009 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>1.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Deploys malware on EJBCA or database servers</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>2.<span style='font:7.0pt "Times New Roman"'> </span></span>
+
+<table cellpadding=0 cellspacing=0>
+ <tr>
+  <td width=30 height=0></td>
+ </tr>
+ <tr>
+  <td></td>
+  <td><img width=812 height=808
+  src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image004.gif"></td>
+ </tr>
+</table>
+
+<br clear=ALL>
+<span lang=EN-US>Exhausts system entropy through excessive /dev/random calls</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>3.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Forces JBoss EAP applications to use predictable entropy sources</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Captures or predicts subsequently generated cryptographic material</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>5.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Uses weak keys to compromise TLS sessions and database encryption</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>UC-009: Air-Gapped Root CA
+Physical Infiltration</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Actor:</span></b><span
+lang=EN-US> Nation-State Actor/Advanced Persistent Threat <b>Affected Assets:</b>
+AS-001, AS-013, IC-009, IC-010 <b>Attack Steps:</b></span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>1.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Conducts reconnaissance on air-gapped facility location and
+personnel</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>2.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Infiltrates facility during scheduled key ceremony operations</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>3.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Installs hardware keyloggers or compromises HSM physical access</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:2.1pt;
+margin-left:10.6pt;text-indent:-6.2pt'><span lang=EN-US style='line-height:
+105%'>4.<span style='font:7.0pt "Times New Roman"'> </span></span><span
+lang=EN-US>Extracts or duplicates Root CA private keys during ceremony</span></p>
+
+<p class=MsoNormal style='margin-left:10.6pt;text-indent:-6.2pt'><span
+lang=EN-US style='line-height:105%'>5.<span style='font:7.0pt "Times New Roman"'>
+</span></span><span lang=EN-US>Establishes persistent access for future
+compromise of PKI trust anchor<br clear=all style='page-break-before:always'>
+</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:602.55pt;margin-bottom:
+0in;margin-left:-3.0pt;text-indent:0in;line-height:107%'>
+
+<table cellpadding=0 cellspacing=0 align=left>
+ <tr>
+  <td width=30 height=0></td>
+ </tr>
+ <tr>
+  <td></td>
+  <td><img width=812 height=1056
+  src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image005.gif"></td>
+ </tr>
+</table>
+
+<br clear=ALL>
+<span lang=EN-US><br clear=all style='page-break-before:always'>
+</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:445.5pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+component &quot;IC-011: External RA&quot; as EXT_RA {         portin
+&quot;AC-014: RA Interface (8443/HTTPS)&quot;         portin &quot;AC-003: SCEP
+Proxy (8080/HTTP)&quot;         portin &quot;AC-004: CMP Proxy
+(8080/HTTP)&quot;         storage &quot;AS-011: RA Credentials&quot;</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:456.8pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+}         component &quot;IC-012: OCSP Responder&quot; as OCSP {         portin
+&quot;AC-009: OCSP Service (8080/HTTP)&quot;         storage &quot;AL-006: OCSP
+Transaction Logs&quot;</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:423.25pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+}         component &quot;IC-016: Certificate Repository&quot; as CERT_REPO
+{         portin &quot;AC-015: LDAP Publisher (389/LDAP,
+636/LDAPS)&quot;         portin &quot;AC-010: CRL Distribution
+(8080/HTTP)&quot;         storage &quot;AS-012: LDAP Bind Credentials&quot;</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:576.95pt;margin-bottom:
+8.0pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+} }</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:325.35pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>rectangle
+&quot;SZ-L1-04: Database Zone&quot; &lt;&lt;zone&gt;&gt; as DB_ZONE
+ZONE_DB_COLOR {     database &quot;IC-005: MariaDB Enterprise Primary&quot; as
+DB1 {         portin &quot;3306/TCP: MySQL Protocol&quot;         storage
+&quot;AD-001-010: PKI Data&quot;         storage &quot;AL-001: Audit
+Logs&quot;         storage &quot;AL-003: MariaDB Logs&quot;         storage
+&quot;AS-007: DB Encryption Keys&quot;         note bottom : **CRITICAL:**
+Requires FIPS Mode\nfor encryption-at-rest\n(PC-012, PC-014)</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:325.35pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+}         database &quot;IC-006: MariaDB Enterprise Secondary&quot; as DB2
+{         portin &quot;3306/TCP: MySQL Protocol&quot;         storage
+&quot;AD-001-010: PKI Data (Replica)&quot;         storage &quot;AL-001: Audit
+Logs (Replica)&quot;         storage &quot;AL-003: MariaDB Logs&quot;        
+note bottom : **CRITICAL:** Requires FIPS Mode\nfor
+encryption-at-rest\n(PC-012, PC-014)</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:358.9pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+}         note right of DB1 : **EP-009: Database Port (3306/TCP)**\n(Critical
+Entry Point)</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:576.95pt;margin-bottom:
+8.15pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>}</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:400.85pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>rectangle
+&quot;SZ-L1-05: HSM Zone&quot; &lt;&lt;zone&gt;&gt; as HSM_ZONE  ZONE_HSM_COLOR
+{     component &quot;IC-007: Luna S790 Issuing CA HSM&quot; as HSM1 {        
+portin &quot;1792/TCP: Luna Network&quot;         portin &quot;22/SSH: HSM
+Admin&quot;         portin &quot;443/HTTPS: Luna Web UI&quot;         storage
+&quot;AS-002: Issuing CA Keys&quot;         storage &quot;AS-003: OCSP Signing
+Keys&quot;         storage &quot;AS-007: DB Encryption Keys&quot;        
+storage &quot;AL-004: HSM Audit Logs&quot;</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:6.15in;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><img width=1
+height=1056
+src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image006.gif"
+align=left hspace=12><img width=1 height=1056
+src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image006.gif"
+align=left hspace=12><span lang=EN-US style='font-size:5.0pt;line-height:125%;
+font-family:Consolas;color:#60636B'>    }         component &quot;IC-008: Luna
+S790 Backup HSM&quot; as HSM2 {         portin &quot;1792/TCP: Luna
+Network&quot;         portin &quot;22/SSH: HSM Admin&quot;         portin
+&quot;443/HTTPS: Luna Web UI&quot;         storage &quot;AS-002: Issuing CA
+Keys (Backup)&quot;         storage &quot;AS-003: OCSP Keys
+(Backup)&quot;         storage &quot;AS-010: Backup Encryption
+Keys&quot;         storage &quot;AL-004: HSM Audit Logs&quot;</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:305.8pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+}         note right of HSM1 : **EP-010: HSM Network (1792/TCP)**\n(Critical
+Entry Point)\nFIPS 140-2 Level 3</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:576.95pt;margin-bottom:
+8.15pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>}</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:344.95pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>rectangle
+&quot;SZ-L1-06: Air-Gapped Root CA Zone&quot; &lt;&lt;zone&gt;&gt; as
+AIRGAP_ZONE ZONE_AIRGAP_COLOR {     component &quot;IC-009: Air-Gapped JBoss
+EAP Root CA&quot; as ROOT_CA {         storage &quot;AD-003: Root CA
+Configuration&quot;         storage &quot;AL-009: Root CA Audit
+Logs&quot;         note bottom : **OFFLINE:** Key ceremonies only\nNo network
+connectivity</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:381.3pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+}         component &quot;IC-010: Luna S790 Root CA HSM&quot; as ROOT_HSM
+{         storage &quot;AS-001: Root CA Private Keys&quot;         storage
+&quot;AS-013: Ceremony Keys&quot;         storage &quot;AL-004: Root HSM Audit
+Logs&quot;         note right : **AIR-GAPPED**\nPhysically isolated\nFIPS 140-2
+Level 3</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:576.95pt;margin-bottom:
+8.0pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+} }</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:289.0pt;margin-bottom:
+8.0pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>rectangle
+&quot;SZ-L1-07: Management Zone&quot; &lt;&lt;zone&gt;&gt; as MGMT_ZONE
+ZONE_MGMT_COLOR {     component &quot;IC-013: Admin Workstation&quot; as
+ADMIN_WS {         storage &quot;AS-006: Admin Client
+Certificates&quot;         storage &quot;AL-008: Authentication
+Logs&quot;         note right : **EP-011: SSH (22/TCP)**\n**EP-012: SNMP
+(161/UDP)**\n**EP-013: HTTPS Admin (8443/TCP)**     } }</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:372.9pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>rectangle
+&quot;SZ-L1-08: Log Collection Zone&quot; &lt;&lt;zone&gt;&gt; as LOG_ZONE
+ZONE_LOG_COLOR {     component &quot;IC-014: SIEM Server&quot; as SIEM
+{         portin &quot;514/UDP: Syslog&quot;         portin &quot;6514/TCP:
+Syslog over TLS&quot;         storage &quot;AL-001-010: Aggregated
+Logs&quot;         portin &quot;DC-001-010: Detective Controls&quot;</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:576.95pt;margin-bottom:
+8.0pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>   
+} }</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:378.5pt;margin-bottom:
+.25pt;margin-left:.5pt;text-indent:-.5pt;line-height:125%'><span lang=EN-US
+style='font-size:5.0pt;line-height:125%;font-family:Consolas;color:#60636B'>rectangle
+&quot;SZ-L1-09: Backup Zone&quot; &lt;&lt;zone&gt;&gt; as BACKUP_ZONE
+ZONE_BACKUP_COLOR {     component &quot;IC-015: Backup Server&quot; as BACKUP
+{         portin &quot;22/SSH: Backup Admin&quot;         portin
+&quot;443/HTTPS: Backup UI&quot;</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:1.6pt;
+margin-left:-.25pt;text-indent:-.5pt;line-height:107%'><b><span lang=EN-US
+style='font-size:7.5pt;line-height:107%'>9. Threat Analysis with STRIDE
+Methodology</span></b></p>
+
+<h1 style='margin-left:-.25pt'>
+
+<table cellpadding=0 cellspacing=0>
+ <tr>
+  <td width=38 height=0></td>
+ </tr>
+ <tr>
+  <td></td>
+  <td><img width=810 height=1004
+  src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image007.gif"></td>
+ </tr>
+</table>
+
+<br clear=ALL>
+<span lang=EN-US>T-001: Spoofing of PKI Administrator Identity</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Attacker impersonates legitimate PKI administrator to gain
+unauthorized access to CA operations, potentially compromising certificate
+issuance integrity and confidentiality of administrative functions.</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Assets
+Affected:</span></b><span lang=EN-US> AS-006 (Admin Client Certificates),
+AD-003 (CA Configuration), AS-001-002 (CA Private Keys)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Given</span></b><span
+lang=EN-US> IC-013 (Admin Workstation) is being targeted</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> weak certificate storage or password policies exist</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> attacker steals or duplicates admin client certificate</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-006 can be compromised (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-003 can be modified (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0001.T1078 Valid Accounts</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0001.T1552 Unsecured Credentials</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-002: Tampering with Database
+Integrity Protection</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:105.35pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Malicious database administrator or attacker with database access
+attempts to modify audit logs or certificate data, compromising integrity and
+enabling non-repudiation violations. <b>Assets Affected:</b> AL-001 (Security
+Audit Logs), AD-005 (Certificate Records), AS-007 (Database Encryption Keys) <b>Given</b>
+IC-005 (MariaDB Primary) database server</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> insufficient separation of duties between DBA and PKI operators</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> privileged user directly modifies database tables</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AL-001 can be tampered with (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-005 can be falsified (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0005.T1565 Data Manipulation</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0005.T1070 Indicator Removal on Host</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-003: Repudiation of
+Certificate Issuance Events</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:137.1pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Administrator or automated process denies performing certificate
+issuance or revocation actions, exploiting gaps in audit logging or
+authentication mechanisms. <b>Assets Affected:</b> AL-001 (Security Audit
+Logs), AD-005 (Certificate Records), AS-009 (Authentication Tokens)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Given</span></b><span
+lang=EN-US> AC-001-002 (EJBCA Web Interfaces) processing certificate requests</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> insufficient binding between authentication and audit events</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> administrator performs unauthorized certificate operations</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AL-001 may lack sufficient detail (availability)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-005 operations become non-repudiable</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0005.T1070 Indicator Removal on Host</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-004: Information Disclosure
+through Protocol Downgrade</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:163.6pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Attacker forces use of weaker enrollment protocols or cryptographic
+algorithms to intercept or modify certificate requests, exposing sensitive
+enrollment data. <b>Assets Affected:</b> AS-004 (Database Passwords), AD-009
+(User Entity Data), AS-008 (TLS Server Certificates) <b>Given</b> AC-003-006
+(Protocol Handlers) accepting multiple enrollment methods</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> insufficient protocol security validation</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> man-in-the-middle attacker downgrades connection security</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-004 can be exposed during transmission (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-009 can be intercepted (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0006.T1557 Adversary-in-the-Middle</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0009.T1040 Network Sniffing</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-005: Denial of Service
+against HSM Operations</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:210.1pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Attacker overwhelms HSM with cryptographic requests or exploits HSM
+partition limits to prevent legitimate certificate signing operations. <b>Assets
+Affected:</b> AS-001-003 (CA Private Keys), IC-007-008 (Luna S790 HSMs), AC-012
+(HSM PKCS#11 Interface) <b>Given</b> IC-007 (Luna S790 HSM Primary) handling
+signing requests</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> insufficient rate limiting on cryptographic operations</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> attacker floods HSM with signing requests</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-001-003 become unavailable (availability)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> legitimate certificate operations fail (availability)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0040.T1499 Endpoint Denial of Service</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0040.T1498 Network Denial of Service</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-006: Elevation of Privilege
+through RBAC Bypass</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:235.0pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Authenticated user with limited permissions exploits application
+vulnerabilities to gain higher-level PKI administrative privileges. <b>Assets
+Affected:</b> AD-004 (Role Definitions), AS-006 (Admin Client Certificates),
+AD-003 (CA Configuration) <b>Given</b> AC-001 (EJBCA Admin UI) with role-based
+access controls</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> vulnerable privilege escalation vectors exist</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> authenticated user exploits application flaws</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-004 can be modified (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> unauthorized access to AS-006 functions (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0004.T1068 Exploitation for Privilege Escalation</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0003.T1078 Valid Accounts</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-007: Spoofing of Certificate
+Authority</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:198.2pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Attacker creates or imports malicious root CA certificate to issue
+unauthorized certificates that appear legitimate to trusting applications. <b>Assets
+Affected:</b> AS-001 (Root CA Private Keys), AD-003 (CA Configuration), AD-005
+(Certificate Records)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Given</span></b><span
+lang=EN-US> IC-003-004 (EJBCA Application Servers) managing CA certificates</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> insufficient validation of CA certificate imports</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> attacker injects malicious CA certificate</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-001 trust model is compromised (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> fraudulent certificates appear legitimate (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0003.T1608 Stage Capabilities</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0003.T1535 Unused/Unsupported Cloud Regions</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-008: Tampering with HSM
+Network Communication</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:101.35pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Attacker with network access intercepts or modifies PKCS#11
+communications between EJBCA and HSM, potentially extracting cryptographic
+material or altering signing operations. <b>Assets Affected:</b> AS-001-003 (CA
+Private Keys), AS-005 (HSM Partition Passwords), AC-012 (HSM PKCS#11 Interface)
+<b>Given</b> SZ-L1-05 (HSM Zone) network communications</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> insufficient NTLS/TLS protection on HSM channels</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> network-positioned attacker intercepts HSM traffic</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-005 can be captured (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> cryptographic operations can be altered (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0006.T1557 Adversary-in-the-Middle</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0009.T1040 Network Sniffing</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-009: Information Disclosure
+through Log Aggregation</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:199.45pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> SIEM or log management system with excessive privileges exposes
+sensitive PKI data contained in audit logs to unauthorized personnel. <b>Assets
+Affected:</b> AL-001-010 (All Log Assets), AD-009 (User Entity Data), AS-004
+(Database Passwords)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Given</span></b><span
+lang=EN-US> IC-014 (SIEM Server) collecting comprehensive logs</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> logs contain sensitive data without proper sanitization</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> SIEM administrator or breach exposes log data</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AL-001-010 reveal sensitive information (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-009 can be extracted from logs (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0009.T1213 Data from Information Repositories</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0010.T1005 Data from Local System</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-010: Denial of Service
+through Database Resource Exhaustion</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:166.65pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Attacker exhausts database resources through excessive certificate
+enrollment requests or audit log generation, preventing legitimate PKI
+operations. <b>Assets Affected:</b> IC-005-006 (MariaDB Servers), AD-001-010
+(PKI Data), AL-001-003 (Database Logs)</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:429.7pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Given</span></b><span lang=EN-US>
+IC-005 (MariaDB Primary) handling PKI transactions <b>And</b> insufficient
+database connection and resource limits</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> attacker generates massive enrollment or audit events</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-001-010 become inaccessible (availability)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> legitimate PKI operations fail (availability)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0040.T1499 Endpoint Denial of Service</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0040.T1496 Resource Hijacking</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-011: Cryptographic Weakness
+due to Non-FIPS JBoss EAP</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> JBoss EAP application server running without FIPS mode provides
+insufficient entropy guarantees for cryptographic operations, potentially
+generating weak random numbers used in certificate serial numbers, nonces, and
+session keys.</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:202.9pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Assets Affected:</span></b><span
+lang=EN-US> AS-008 (TLS Server Certificates), AS-009 (Authentication Tokens),
+AD-005 (Certificate Records), AS-004 (Database Passwords) <b>Given</b>
+IC-003-004 (EJBCA Application Servers) running JBoss EAP without FIPS 140-2
+mode</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> Java SecureRandom not using validated entropy sources</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> application generates cryptographic material or random values</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-008 may have predictable private keys
+(integrity/confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-009 tokens become guessable (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-005 certificate serial numbers may be predictable (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0006.T1600 Weaken Encryption</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0006.T1552 Unsecured Credentials</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-012: Database Encryption
+Weakness due to Non-FIPS MariaDB</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> MariaDB Enterprise running without FIPS mode uses non-validated
+cryptographic modules for data-at-rest encryption and SSL/TLS connections,
+potentially compromising database encryption keys and reducing effective key
+space.</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:209.0pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Assets Affected:</span></b><span
+lang=EN-US> AS-007 (Database Encryption Keys), AS-004 (Database Passwords),
+AL-001 (Security Audit Logs), AD-001-010 (All PKI Data) <b>Given</b> IC-005-006
+(MariaDB Servers) operating without FIPS 140-2 validated crypto modules</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> encryption-at-rest using non-validated random number generators</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> database generates encryption keys or initialization vectors</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-007 may have reduced entropy (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-004 SSL/TLS connections use weak keys (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AL-001 integrity protection compromised (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-001-010 encrypted data vulnerable to cryptanalysis
+(confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0006.T1600 Weaken Encryption</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0009.T1040 Network Sniffing</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-013: Key Space Reduction
+through Poor Entropy Management</span></h1>
+
+<p class=MsoNormal style='margin-left:-.35pt'>
+
+<table cellpadding=0 cellspacing=0>
+ <tr>
+  <td width=38 height=0></td>
+ </tr>
+ <tr>
+  <td></td>
+  <td><img width=808 height=1
+  src="EJBCA%20Enterprise%20Deployment%20Architecture%20-%20Claude%20wow.pdf_files/image008.gif"></td>
+ </tr>
+</table>
+
+<br clear=ALL>
+<b><span lang=EN-US>Summary:</span></b><span lang=EN-US> Combined effect of
+non-FIPS JBoss EAP and MariaDB creates systemic cryptographic weakness where
+multiple components use insufficient entropy sources, dramatically reducing
+effective key space and enabling cryptanalytic attacks.</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:298.65pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Assets Affected:</span></b><span
+lang=EN-US> AS-001-012 (All Secret Assets), AD-005 (Certificate Records),
+AL-001 (Security Audit Logs) <b>Given</b> IC-003-006 (All Application and
+Database Components) lacking FIPS entropy validation</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> multiple systems sharing poor entropy sources</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> cryptographic operations occur across the PKI infrastructure</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-001-012 effective key space is significantly reduced
+(confidentiality/integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AD-005 certificate cryptographic binding weakened (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AL-001 audit log signatures become forgeable (integrity)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> TA0006.T1600 Weaken Encryption</span></p>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:0in;margin-bottom:3.2pt;
+margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span lang=EN-US>
+TA0006.T1556 Modify Authentication Process</span></p>
+
+<h1 style='margin-left:-.25pt'><span lang=EN-US>T-014: Air-Gapped Root CA
+Physical Compromise</span></h1>
+
+<p class=MsoNormal style='margin-top:0in;margin-right:114.1pt;margin-bottom:
+.2pt;margin-left:-.35pt'><b><span lang=EN-US>Summary:</span></b><span
+lang=EN-US> Attacker gains physical access to air-gapped Root CA infrastructure
+during key ceremonies or maintenance, potentially compromising the ultimate
+trust anchor of the entire PKI. <b>Assets Affected:</b> AS-001 (Root CA Private
+Keys), AS-013 (Root CA Ceremony Keys), IC-009 (Air-Gapped Root CA Server),
+IC-010 (Luna S790 Root CA HSM) <b>Given</b> IC-009-010 (Air-Gapped Root CA
+Infrastructure) during key ceremony operations</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>And</span></b><span
+lang=EN-US> insufficient physical security controls or insider threats</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>When</span></b><span
+lang=EN-US> attacker gains physical access to air-gapped facility</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-001 ultimate PKI trust anchor compromised
+(integrity/confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> AS-013 ceremony credentials exposed (confidentiality)</span></p>
+
+<p class=MsoNormal style='margin-left:-.35pt'><b><span lang=EN-US>Then</span></b><span
+lang=EN-US> entire PKI hierarchy becomes untrustworthy (integrity)</span></p>
+
+</div>
+
+</body>
+
+</html>
