@@ -1,0 +1,1190 @@
+<HTML><HEAD>
+
+<TITLE>EJBCA Enterprise Deployment Architecture - Claude</TITLE>
+<META NAME="description" CONTENT="">
+<META NAME="keywords" CONTENT="">
+<META NAME="author" CONTENT="">
+<META NAME="generator" CONTENT="Iceni Technology: GeminiSolo">
+</HEAD>
+<BODY bgcolor="white">
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow02.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE> <B><a name="t22">E</a>JBCA Enterprise Threat Model Analysis</B>
+ <B><a name="t23">L</a>una S790 HSM &amp; MariaDB Enterprise on RHEL 8</B>
+ <B><a name="t24">E</a>xecutive Summary</B>
+ This comprehensive threat model analyzes EJBCA Enterprise Edition deployed with Luna S790 HSM and MariaDB Enterprise on RHEL 8 servers, following security best practices and vendor recommendations.
+
+ <B><a name="t25">1</a>. Network Security Zones (SZ-L1-#)</B>
+   <B><a name="t26">Z</a>one</B>
+               <B><a name="t27">Z</a>one Name Purpose</B>                                                <B><a name="t28">S</a>ecurity Level Network Segment</B>
+   <B>ID</B>
+   SZ-L1-
+               Internet/Public Zone        External client access               Public                Internet-facing
+   01
+   SZ-L1-                                  Load balancers, WAF, reverse
+               DMZ Zone                                                         Semi-trusted DMZ network
+   02                                      proxies
+   SZ-L1-
+               Application Zone            EJBCA application servers            Restricted            Internal LAN
+   03
+   SZ-L1-
+               Database Zone MariaDB Enterprise servers Highly restricted Database subnet
+   04
+   SZ-L1-                                                                       Maximum               Isolated HSM
+               HSM Zone                    Luna S790 HSM appliances
+   05                                                                           security              network
+   SZ-L1-      Air-Gapped Root CA                                               Maximum
+                                           Offline Root CA infrastructure                             Air-gapped/Isolated
+   06          Zone                                                             security
+   SZ-L1-                                  Admin workstations,                                        Management
+               Management Zone                                                  Administrative
+   07                                      monitoring                                                 subnet
+   SZ-L1-
+               Log Collection Zone SIEM, log aggregation servers Security focused Logging subnet
+   08
+   SZ-L1-
+               Backup Zone                 Backup storage, DR systems           Archive security      Backup network
+   09
+
+ <B><a name="t29">2</a>. Infrastructure and Middleware Components (IC-#)</B>
+   <B><a name="t30">C</a>omponent</B>                                                                     <B><a name="t32">D</a>eployed</B>
+                     <B><a name="t31">C</a>omponent Name Description</B>                                                   <B><a name="t33">T</a>echnology Stack</B>
+   <B>ID</B>                                                                            <B>Zone</B>
+   IC-001            Load Balancer            HA Proxy/F5 load balancer          SZ-L1-02         Hardware/Software LB
+                     Web Application          ModSecurity/dedicated
+   IC-002                                                                        SZ-L1-02 Security appliance
+                     Firewall                 WAF
+                     EJBCA App Server                                                             JBoss EAP 7.4+ on RHEL
+   IC-003                                     JBoss EAP application server       SZ-L1-03
+                     Primary                                                                      8
+                     EJBCA App Server                                                             JBoss EAP 7.4+ on RHEL
+   IC-004                                     JBoss EAP application server SZ-L1-03
+                     Secondary                                                                    8
+                                                                                                  MariaDB Enterprise
+   IC-005            MariaDB Primary          Primary database server            SZ-L1-04
+                                                                                                  10.6+
+                                                                                                  MariaDB Enterprise
+   IC-006 MariaDB Secondary Secondary database server SZ-L1-04
+                                                                                                  10.6+
+                     Luna S790 HSM            Online HSM for issuing
+   IC-007                                                                        SZ-L1-05         Thales Luna S790
+                     Issuing CA               operations
+                     Luna S790 HSM            Backup HSM for issuing
+   IC-008                                                                        SZ-L1-05 Thales Luna S790
+                     Backup                   operations
+                     Air-Gapped Root          Offline Root CA EJBCA                               EJBCA on RHEL 8 (Air-
+   IC-009                                                                        SZ-L1-06
+                     CA Server                instance                                            gapped)
+                     Luna S790 HSM            Air-gapped HSM for Root                             Thales Luna S790 (Air-
+   IC-010                                                                        SZ-L1-06
+                     Root CA                  CA keys                                             gapped)
+   IC-011            External RA Server       Registration Authority             SZ-L1-03         EJBCA RA on RHEL 8
+   IC-012 OCSP Responder Certificate validation service SZ-L1-03 EJBCA VA on RHEL 8
+                                              PKI administrator
+   IC-013            Admin Workstation                                           SZ-L1-07         Windows/Linux client
+                                              workstation
+   IC-014 SIEM Server Security monitoring SZ-L1-08 Splunk/ELK Stack
+   IC-015            Backup Server            Enterprise backup solution         SZ-L1-09         Backup appliance
+                     Certificate
+   IC-016                                     LDAP/HTTP certificate store SZ-L1-03 OpenLDAP/HTTP server
+                     Repository
+   IC-017            End User Device          Client enrollment device           SZ-L1-01         Various OS types
+                     Network
+   IC-018                                     Switches, routers, firewalls All Zones Cisco/Juniper
+                     Infrastructure
+
+ <B><a name="t34">3</a>. Application Components (AC-#)</B>
+   <B><a name="t35">C</a>omponent</B>                                                                     <B><a name="t37">H</a>ost</B>
+                     <B><a name="t36">C</a>omponent Name Description</B>                                                       <B><a name="t38">P</a>ort/Protocol</B>
+   <B>ID</B>                                                                            <B>Component</B>
+                                               Web-based administration
+   AC-001            EJBCA Admin UI                                              IC-003, IC-004       8443/HTTPS
+                                               interface
+                                               Public certificate enrollment                          8080/HTTP,
+   AC-002 EJBCA Public UI                                                        IC-003, IC-004
+                                               interface                                              8442/HTTPS
+                     SCEP Protocol             Simple Certificate
+   AC-003                                                                        IC-003, IC-004       8080/HTTP
+                     Handler                   Enrollment Protocol
+                     CMP Protocol              Certificate Management
+   AC-004                                                                        IC-003, IC-004 8080/HTTP
+                     Handler                   Protocol
+                     EST Protocol              Enrollment over Secure
+   AC-005                                                                        IC-003, IC-004       8443/HTTPS
+                     Handler                   Transport
+
+
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow02.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow03.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE>   <B><a name="t39">C</a>omponent</B>                                                                     <B><a name="t41">H</a>ost</B>
+                     <B><a name="t40">C</a>omponent Name Description</B>                                                       <B><a name="t42">P</a>ort/Protocol</B>
+   <B>ID</B>                                                                            <B>Component</B>
+                     ACME Protocol             Automated Certificate
+   AC-006                                                                        IC-003, IC-004 8080/HTTP
+                     Handler                   Management
+   AC-007            REST API                  RESTful web services              IC-003, IC-004       8443/HTTPS
+   AC-008 SOAP Web Services Enterprise integration APIs IC-003, IC-004 8443/HTTPS
+                                               Online Certificate Status
+   AC-009            OCSP Service                                                IC-012               8080/HTTP
+                                               Protocol
+                     CRL Distribution
+   AC-010                                      Certificate Revocation Lists IC-003, IC-004 8080/HTTP
+                     Service
+                     CA Certificate            Root/Sub-CA certificate
+   AC-011                                                                        IC-003, IC-004       8080/HTTP
+                     Service                   distribution
+                     HSM PKCS#11               Hardware security module
+   AC-012                                                                        IC-003, IC-004 TCP/IP to HSM
+                     Interface                 interface
+                     Database                  MariaDB connection
+   AC-013                                                                        IC-003, IC-004       3306/TCP
+                     Connection Pool           management
+                     External RA
+   AC-014                                      Registration Authority proxy IC-011 8443/HTTPS
+                     Interface
+                     Certificate
+   AC-015                                      LDAP/Database publishers          IC-003, IC-004       389/LDAP, Various
+                     Publishers
+
+ <B><a name="t43">4</a>. Entry and Exit Points</B>
+ <B><a name="t44">E</a>ntry Points</B>
+   <B><a name="t45">E</a>ntry Point</B>                                                                                                   <B><a name="t48">R</a>isk</B>
+                     <B><a name="t46">N</a>ame</B>                       <B><a name="t47">C</a>omponent Protocol Access Control</B>
+   <B>ID</B>                                                                                                            <B>Level</B>
+   EP-001            Public Web Interface       AC-002            HTTP/HTTPS       Anonymous/Certificate         Medium
+   EP-002 Admin Web Interface AC-001 HTTPS Certificate-based High
+   EP-003            SCEP Endpoint              AC-003            HTTP             Challenge/Certificate         Medium
+                                                                                   Shared
+   EP-004 CMP Endpoint AC-004 HTTP                                                                               Medium
+                                                                                   Secret/Certificate
+   EP-005            EST Endpoint               AC-005            HTTPS            Certificate/HTTP Auth         Medium
+   EP-006 ACME Endpoint AC-006 HTTP Challenge-based Low
+   EP-007            REST API                   AC-007            HTTPS            Certificate/Token             High
+   EP-008 SOAP Services AC-008 HTTPS Certificate/Token High
+   EP-009            Database Port              IC-005            TCP 3306         Database auth                 Critical
+                     HSM Network
+   EP-010                                       IC-007 TCP/IP NTLS/Certificate Critical
+                     Interface
+                                                IC-003, IC-
+   EP-011            SSH Management                               SSH              Key-based                     High
+                                                004
+                                                IC-003, IC-
+   EP-012 SNMP Monitoring                                         SNMP Community string Low
+                                                004
+
+ <B><a name="t49">E</a>xit Points</B>
+   <B><a name="t50">E</a>xit</B>
+                <B><a name="t51">N</a>ame</B>                        <B><a name="t52">C</a>omponent Destination Protocol Purpose</B>
+   <B>Point ID</B>
+                                            IC-003, IC-       IC-005, IC-
+   EX-001       Database Connection                                              TCP 3306             Data persistence
+                                            004               006
+                                            IC-003, IC-       IC-007, IC-                             Cryptographic
+   EX-002 HSM Communication                                                      PKCS#11
+                                            004               008                                     operations
+                                                                                                      Certificate
+   EX-003       LDAP Publishing             AC-015            IC-016             LDAP
+                                                                                                      publishing
+                                            IC-003, IC-
+   EX-004 Log Shipping                                        IC-014 Syslog/HTTPS Security monitoring
+                                            004
+                                            IC-005, IC-                          Network
+   EX-005       Backup Operations                             IC-015                                  Data backup
+                                            006                                  protocols
+                External RA                 IC-003, IC-
+   EX-006                                                     IC-011 HTTPS RA proxying
+                Communication               004
+   EX-007       OCSP Publishing             AC-009            Internet           HTTP                 Certificate validation
+                                                                                                      Revocation
+   EX-008 CRL Distribution AC-010 CDN/Internet HTTP
+                                                                                                      distribution
+                                            All                                                       Time
+   EX-009       Time Sync                                     NTP servers        NTP
+                                            components                                                synchronization
+                                            All
+   EX-010 DNS Resolution                                      DNS servers DNS                         Name resolution
+                                            components
+
+ <B><a name="t53">5</a>. Data Assets</B>
+ <B><a name="t54">R</a>egular Data Assets (AD-#)</B>
+   <B><a name="t55">A</a>sset ID Asset Name</B>                        <B><a name="t56">D</a>escription</B>                               <B><a name="t57">S</a>torage Location Sensitivity</B>
+   AD-001       Certificate Profiles          Certificate template definitions          IC-005, IC-006          Medium
+   AD-002 End Entity Profiles User/device enrollment templates IC-005, IC-006 Medium
+   AD-003       CA Configuration              Certificate Authority settings            IC-005, IC-006          High
+   AD-004 Role Definitions RBAC role configurations IC-005, IC-006 High
+   AD-005       Certificate Records           Issued certificate metadata               IC-005, IC-006          Medium
+   AD-006 Revocation Data CRL and OCSP status information IC-005, IC-006 High
+   AD-007       Publisher Configuration       Certificate publishing settings           IC-005, IC-006          Medium
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow03.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+</BODY></HTML>
+
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow03.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE>   <B><a name="t39">C</a>omponent</B>                                                                     <B><a name="t41">H</a>ost</B>
+                     <B><a name="t40">C</a>omponent Name Description</B>                                                       <B><a name="t42">P</a>ort/Protocol</B>
+   <B>ID</B>                                                                            <B>Component</B>
+                     ACME Protocol             Automated Certificate
+   AC-006                                                                        IC-003, IC-004 8080/HTTP
+                     Handler                   Management
+   AC-007            REST API                  RESTful web services              IC-003, IC-004       8443/HTTPS
+   AC-008 SOAP Web Services Enterprise integration APIs IC-003, IC-004 8443/HTTPS
+                                               Online Certificate Status
+   AC-009            OCSP Service                                                IC-012               8080/HTTP
+                                               Protocol
+                     CRL Distribution
+   AC-010                                      Certificate Revocation Lists IC-003, IC-004 8080/HTTP
+                     Service
+                     CA Certificate            Root/Sub-CA certificate
+   AC-011                                                                        IC-003, IC-004       8080/HTTP
+                     Service                   distribution
+                     HSM PKCS#11               Hardware security module
+   AC-012                                                                        IC-003, IC-004 TCP/IP to HSM
+                     Interface                 interface
+                     Database                  MariaDB connection
+   AC-013                                                                        IC-003, IC-004       3306/TCP
+                     Connection Pool           management
+                     External RA
+   AC-014                                      Registration Authority proxy IC-011 8443/HTTPS
+                     Interface
+                     Certificate
+   AC-015                                      LDAP/Database publishers          IC-003, IC-004       389/LDAP, Various
+                     Publishers
+
+ <B><a name="t43">4</a>. Entry and Exit Points</B>
+ <B><a name="t44">E</a>ntry Points</B>
+   <B><a name="t45">E</a>ntry Point</B>                                                                                                   <B><a name="t48">R</a>isk</B>
+                     <B><a name="t46">N</a>ame</B>                       <B><a name="t47">C</a>omponent Protocol Access Control</B>
+   <B>ID</B>                                                                                                            <B>Level</B>
+   EP-001            Public Web Interface       AC-002            HTTP/HTTPS       Anonymous/Certificate         Medium
+   EP-002 Admin Web Interface AC-001 HTTPS Certificate-based High
+   EP-003            SCEP Endpoint              AC-003            HTTP             Challenge/Certificate         Medium
+                                                                                   Shared
+   EP-004 CMP Endpoint AC-004 HTTP                                                                               Medium
+                                                                                   Secret/Certificate
+   EP-005            EST Endpoint               AC-005            HTTPS            Certificate/HTTP Auth         Medium
+   EP-006 ACME Endpoint AC-006 HTTP Challenge-based Low
+   EP-007            REST API                   AC-007            HTTPS            Certificate/Token             High
+   EP-008 SOAP Services AC-008 HTTPS Certificate/Token High
+   EP-009            Database Port              IC-005            TCP 3306         Database auth                 Critical
+                     HSM Network
+   EP-010                                       IC-007 TCP/IP NTLS/Certificate Critical
+                     Interface
+                                                IC-003, IC-
+   EP-011            SSH Management                               SSH              Key-based                     High
+                                                004
+                                                IC-003, IC-
+   EP-012 SNMP Monitoring                                         SNMP Community string Low
+                                                004
+
+ <B><a name="t49">E</a>xit Points</B>
+   <B><a name="t50">E</a>xit</B>
+                <B><a name="t51">N</a>ame</B>                        <B><a name="t52">C</a>omponent Destination Protocol Purpose</B>
+   <B>Point ID</B>
+                                            IC-003, IC-       IC-005, IC-
+   EX-001       Database Connection                                              TCP 3306             Data persistence
+                                            004               006
+                                            IC-003, IC-       IC-007, IC-                             Cryptographic
+   EX-002 HSM Communication                                                      PKCS#11
+                                            004               008                                     operations
+                                                                                                      Certificate
+   EX-003       LDAP Publishing             AC-015            IC-016             LDAP
+                                                                                                      publishing
+                                            IC-003, IC-
+   EX-004 Log Shipping                                        IC-014 Syslog/HTTPS Security monitoring
+                                            004
+                                            IC-005, IC-                          Network
+   EX-005       Backup Operations                             IC-015                                  Data backup
+                                            006                                  protocols
+                External RA                 IC-003, IC-
+   EX-006                                                     IC-011 HTTPS RA proxying
+                Communication               004
+   EX-007       OCSP Publishing             AC-009            Internet           HTTP                 Certificate validation
+                                                                                                      Revocation
+   EX-008 CRL Distribution AC-010 CDN/Internet HTTP
+                                                                                                      distribution
+                                            All                                                       Time
+   EX-009       Time Sync                                     NTP servers        NTP
+                                            components                                                synchronization
+                                            All
+   EX-010 DNS Resolution                                      DNS servers DNS                         Name resolution
+                                            components
+
+ <B><a name="t53">5</a>. Data Assets</B>
+ <B><a name="t54">R</a>egular Data Assets (AD-#)</B>
+   <B><a name="t55">A</a>sset ID Asset Name</B>                        <B><a name="t56">D</a>escription</B>                               <B><a name="t57">S</a>torage Location Sensitivity</B>
+   AD-001       Certificate Profiles          Certificate template definitions          IC-005, IC-006          Medium
+   AD-002 End Entity Profiles User/device enrollment templates IC-005, IC-006 Medium
+   AD-003       CA Configuration              Certificate Authority settings            IC-005, IC-006          High
+   AD-004 Role Definitions RBAC role configurations IC-005, IC-006 High
+   AD-005       Certificate Records           Issued certificate metadata               IC-005, IC-006          Medium
+   AD-006 Revocation Data CRL and OCSP status information IC-005, IC-006 High
+   AD-007       Publisher Configuration       Certificate publishing settings           IC-005, IC-006          Medium
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow03.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow02.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow04.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE>   <B><a name="t58">A</a>sset ID Asset Name</B>                        <B><a name="t59">D</a>escription</B>                               <B><a name="t60">S</a>torage Location Sensitivity</B>
+   AD-008 System Configuration EJBCA system settings                                    IC-003, IC-004 High
+   AD-009       User Entity Data              End user registration information         IC-005, IC-006          High
+   AD-010 Certificate Templates X.509 certificate extensions IC-005, IC-006 Medium
+
+ <B><a name="t61">S</a>ecret Assets (AS-#)</B>
+   <B><a name="t62">A</a>sset</B>
+              <B><a name="t63">A</a>sset Name Description</B>                                           <B><a name="t64">S</a>torage Location Protection Level</B>
+   <B>ID</B>
+                                                                                                       Maximum (Air-
+   AS-001     Root CA Private Keys        Root certificate authority keys      IC-010
+                                                                                                       gapped)
+              Issuing CA Private
+   AS-002                                 Sub-CA signing keys IC-007, IC-008 Maximum
+              Keys
+   AS-003     OCSP Signing Keys           OCSP responder private keys          IC-007, IC-008          High
+                                          MariaDB authentication
+   AS-004 Database Passwords                                                   IC-003, IC-004 High
+                                          credentials
+              HSM Partition               Luna HSM partition                   IC-003, IC-004, IC-
+   AS-005                                                                                              Maximum
+              Passwords                   authentication                       009
+              Admin Client
+   AS-006                                 PKI administrator credentials IC-013                         High
+              Certificates
+              Database Encryption
+   AS-007                                 Database protection keys             IC-007, IC-008          Maximum
+              Keys
+   AS-008 TLS Server Certificates HTTPS server certificates IC-003, IC-004 Medium
+   AS-009     Authentication Tokens       API and service tokens               IC-003, IC-004          High
+              Backup Encryption
+   AS-010                                 Archive encryption keys IC-010, IC-015 High
+              Keys
+              External RA
+   AS-011                                 RA-CA communication secrets          IC-011                  High
+              Credentials
+                                          Directory publishing
+   AS-012 LDAP Bind Credentials                                                IC-003, IC-004 Medium
+                                          passwords
+              Root CA Ceremony            Air-gapped key ceremony                                      Maximum (Air-
+   AS-013                                                                      IC-010
+              Keys                        credentials                                                  gapped)
+
+ <B><a name="t65">L</a>og Assets (AL-#)</B>
+   <B><a name="t66">A</a>sset ID Asset Name</B>                             <B><a name="t67">D</a>escription</B>                          <B><a name="t68">S</a>torage Location Retention</B>
+   AL-001       Security Audit Logs                EJBCA security events                IC-005, IC-006          7 years
+   AL-002 System Logs                              Application server logs IC-003, IC-004 1 year
+   AL-003       Database Transaction Logs          MariaDB transaction records          IC-005, IC-006          1 year
+   AL-004 HSM Audit Logs                           Luna HSM security events IC-007, IC-008 7 years
+   AL-005       Access Logs                        Web server access records            IC-003, IC-004          1 year
+   AL-006 OCSP Transaction Logs Certificate validation records IC-012                                           1 year
+   AL-007       Network Flow Logs                  Firewall and network logs            IC-018                  6 months
+   AL-008 Authentication Logs Login and access events IC-003, IC-004 2 years
+   AL-009       Configuration Change Logs          System modification records          IC-003, IC-004          7 years
+   AL-010 Error Logs                               Application error events IC-003, IC-004 1 year
+
+ <B><a name="t69">6</a>. Misuse Cases</B>
+ <B><a name="t70">U</a>C-001: Insider Root CA Key Compromise</B>
+ <B>Actor:</B> Malicious PKI Administrator <B>Affected Assets:</B> AS-001, AS-002, AD-003, AL-001 <B>Attack Steps:</B>
+   1. Legitimate admin gains physical access to HSM facility
+   2. Uses administrative privileges to extract root CA keys (if HSM is misconfigured)
+   3. Creates unauthorized certificates with root authority
+   4. Covers tracks by modifying audit logs
+ <B><a name="t71">U</a>C-002: Database Injection Attack</B>
+ <B>Actor:</B> External Attacker <B>Affected Assets:</B> AD-001-010, AS-004, AL-001-003 <B>Attack Steps:</B>
+   1. Exploits SQL injection in web interface
+   2. Gains database access through application credentials
+   3. Extracts certificate data and configuration
+   4. Modifies certificate status or revocation data
+ <B><a name="t72">U</a>C-003: HSM Network Interception</B>
+ <B>Actor:</B> MITM Actor (insider with network access) <B>Affected Assets:</B> AS-001-003, AS-005, AL-004 <B>Attack Steps:</B>
+   1. Positions on HSM network segment
+   2. Intercepts PKCS#11 communications
+   3. Attempts to capture cryptographic material
+   4. Performs replay attacks on HSM operations
+ <B><a name="t73">U</a>C-004: Certificate Authority Spoofing</B>
+ <B>Actor:</B> Advanced Persistent Threat <B>Affected Assets:</B> AS-001-002, AD-003, AD-006, AL-001 <B>Attack Steps:</B>
+   1. Compromises EJBCA application server
+   2. Installs malicious CA certificate
+   3. Issues fraudulent certificates
+   4. Distributes false certificates through legitimate channels
+ <B><a name="t74">U</a>C-005: Audit Log Tampering</B>
+ <B>Actor:</B> Privileged Database Administrator <B>Affected Assets:</B> AL-001-010, AS-007 <B>Attack Steps:</B>
+   1. Uses database administrator privileges
+   2. Directly modifies audit log tables
+   3. Removes evidence of unauthorized activities
+   4. Bypasses integrity protection mechanisms
+ <B><a name="t75">U</a>C-006: Protocol Downgrade Attack</B>
+ <B>Actor:</B> Man-in-the-Middle Attacker <B>Affected Assets:</B> AS-008, AD-005, AC-003-006 <B>Attack Steps:</B>
+   1. Intercepts client-server communication
+   2. Forces use of weaker enrollment protocols
+   3. Captures or modifies certificate requests
+   4. Issues unauthorized certificates
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow02.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow04.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow03.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow05.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE> <B><a name="t76">U</a>C-007: Cryptographic Weakness Exploitation</B>
+ <B>Actor:</B> Advanced Cryptanalyst/Nation-State Actor <B>Affected Assets:</B> AS-001-012, AD-005, AL-001 <B>Attack Steps:</B>
+   1. Analyzes certificate serial numbers and cryptographic material from non-FIPS systems
+   2. Identifies patterns in weak random number generation
+   3. Predicts future cryptographic values (keys, nonces, certificates)
+   4. Forges certificates or breaks encryption using reduced key space
+   5. Compromises entire PKI trust model through cryptanalytic attack
+ <B><a name="t77">U</a>C-008: Entropy Starvation Attack</B>
+ <B>Actor:</B> Internal Malicious Process/Malware <B>Affected Assets:</B> AS-004, AS-007, AS-008, AS-009 <B>Attack Steps:</B>
+   1. Deploys malware on EJBCA or database servers
+   2. Exhausts system entropy through excessive /dev/random calls
+   3. Forces JBoss EAP applications to use predictable entropy sources
+   4. Captures or predicts subsequently generated cryptographic material
+   5. Uses weak keys to compromise TLS sessions and database encryption
+ <B><a name="t78">U</a>C-009: Air-Gapped Root CA Physical Infiltration</B>
+ <B>Actor:</B> Nation-State Actor/Advanced Persistent Threat <B>Affected Assets:</B> AS-001, AS-013, IC-009, IC-010 <B>Attack Steps:</B>
+   1. Conducts reconnaissance on air-gapped facility location and personnel
+   2. Infiltrates facility during scheduled key ceremony operations
+   3. Installs hardware keyloggers or compromises HSM physical access
+   4. Extracts or duplicates Root CA private keys during ceremony
+   5. Establishes persistent access for future compromise of PKI trust anchor
+   6. Uses compromised Root CA to issue fraudulent intermediate certificates
+
+ <B><a name="t79">7</a>. Security Controls</B>
+ <B><a name="t80">P</a>reventive Controls</B>
+   <B><a name="t81">C</a>ontrol</B>                                                              <B><a name="t83">E</a>xpected from</B>
+                <B><a name="t82">C</a>ontrol Name Type</B>                                                             <B><a name="t84">I</a>mplementation</B>
+   <B>ID</B>                                                                   <B>EJBCA</B>
+                                                                                              Luna S790 FIPS 140-2 Level
+   PC-001       HSM Key Protection            EJBCA/Vendor              Yes
+                                                                                              3
+                Database Integrity
+   PC-002                                     EJBCA                     Yes                   Digital signature verification
+                Protection
+                Certificate-based
+   PC-003                                     EJBCA                     Yes                   Client certificate validation
+                Authentication
+                Role-Based Access
+   PC-004                                     EJBCA                     Yes                   Fine-grained permissions
+                Control
+   PC-005       Network Segmentation          Infrastructure            No                    VLAN/firewall isolation
+   PC-006 TLS Encryption EJBCA/Infrastructure Yes                                             End-to-end encryption
+   PC-007       Input Validation              EJBCA                     Yes                   Parameter sanitization
+   PC-008 Audit Log Signing EJBCA                                       Yes                   Cryptographic integrity
+   PC-009       Password Complexity           System                    No                    RHEL 8 PAM policies
+   PC-010 Database Access Control Infrastructure No                                           MariaDB user privileges
+                                                                                              Java FIPS 140-2 crypto
+   PC-011       FIPS Mode JBoss EAP           Infrastructure            <B><a name="t85">C</a>RITICAL</B>
+                                                                                              provider
+                                                                                              MariaDB FIPS validated
+   PC-012 FIPS Mode MariaDB Infrastructure <B>CRITICAL</B>
+                                                                                              encryption
+                                                                                              Hardware RNG/entropy
+   PC-013       Entropy Validation            Infrastructure            <B><a name="t86">C</a>RITICAL</B>
+                                                                                              sources
+                Cryptographic Module                                                          FIPS 140-2 validated crypto
+   PC-014                                     Infrastructure <B>CRITICAL</B>
+                Validation                                                                    libraries
+                Air-Gapped Physical                                                           Biometric access, guards,
+   PC-015                                     Infrastructure            <B><a name="t87">C</a>RITICAL</B>
+                Security                                                                      cameras
+                Key Ceremony                                                                  Multi-person authorization,
+   PC-016                                     Process                   <B><a name="t88">C</a>RITICAL</B>
+                Procedures                                                                    witnesses
+
+ <B><a name="t89">D</a>etective Controls</B>
+   <B><a name="t90">C</a>ontrol</B>                                                             <B><a name="t91">E</a>xpected from</B>
+                 <B><a name="t92">C</a>ontrol Name Type</B>                                                              <B><a name="t93">I</a>mplementation</B>
+   <B><a name="t94">I</a>D</B>                                                                  <B><a name="t95">E</a>JBCA</B>
+   DC-001        Security Event Logging      EJBCA                     Yes                      Comprehensive audit trail
+   DC-002 HSM Tamper Detection Vendor                                  No                       Luna S790 built-in sensors
+   DC-003        Intrusion Detection         Infrastructure            No                       Network/host IDS
+   DC-004 Log Correlation Infrastructure No                                                     SIEM analysis
+                                                                                                Issuance/revocation
+   DC-005        Certificate Monitoring      EJBCA                     Yes
+                                                                                                tracking
+   DC-006 Database Monitoring Infrastructure No                                                 MariaDB audit plugin
+                 Performance
+   DC-007                                    EJBCA/Infrastructure      Partial                  Application metrics
+                 Monitoring
+                 File Integrity
+   DC-008                                    Infrastructure No                                  AIDE/Tripwire
+                 Monitoring
+                 Network Traffic
+   DC-009                                    Infrastructure            No                       DPI/flow analysis
+                 Analysis
+                 Authentication
+   DC-010                                    EJBCA                     Yes                      Login attempt tracking
+                 Monitoring
+
+ <B><a name="t96">C</a>orrective Controls</B>
+   <B><a name="t97">C</a>ontrol</B>                                                             <B><a name="t99">E</a>xpected from</B>
+                 <B><a name="t98">C</a>ontrol Name Type</B>                                                               <B><a name="t100">I</a>mplementation</B>
+   <B>ID</B>                                                                  <B>EJBCA</B>
+   CC-001        Certificate Revocation      EJBCA                     Yes                       CRL/OCSP mechanisms
+   CC-002 Incident Response Process                                    No                        Security procedures
+   CC-003        Backup and Recovery         EJBCA/Infrastructure      Partial                   Data restoration
+   CC-004 Account Lockout EJBCA                                        Yes                       Failed login protection
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow03.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow05.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow04.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow06.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE>  <B><a name="t101">C</a>ontrol</B>                                           <B><a name="t103">E</a>xpected from</B>
+            <B><a name="t102">C</a>ontrol Name Type</B>                                         <B><a name="t104">I</a>mplementation</B>
+  <B>ID</B>                                                <B>EJBCA</B>
+            Automated
+  CC-005                         Infrastructure     No                SIEM response actions
+            Remediation
+                                                                      System update
+  CC-006 Patch Management Infrastructure No
+                                                                      procedures
+  CC-007    Configuration RollbackEJBCA              Yes               Version control
+  CC-008 HSM Key Recovery Vendor                    No                Luna key backup/restore
+  CC-009    Network Isolation    Infrastructure     No                Quarantine capabilities
+  CC-010 Forensic Preservation Process              No                Evidence collection
+
+ <B><a name="t105">D</a>ual Control Recommendations</B>
+    <B>Root CA Operations:</B> Require two administrators for key ceremonies
+    <B>Certificate Profile Changes:</B> Implement approval workflows
+    <B>HSM Administrative Access:</B> Split authentication (multiple PED keys)
+    <B>Database Schema Changes:</B> Separate DBA and PKI operator roles
+    <B>Backup Operations:</B> Independent verification of backup integrity
+
+ <B><a name="t106">8</a>. Deployment Diagram</B>
+   plantuml
+
+   @startuml deploy_ejbca_hsm_mariadb_claude_v2
+   ' !theme plain
+
+   ' Color definitions (without # since we'll add it in usage)
+   !define ZONE_PUBLIC_COLOR #FFE4E1
+   !define ZONE_DMZ_COLOR #E0E0E0
+   !define ZONE_APP_COLOR #E6F3FF
+   !define ZONE_DB_COLOR #F0FFF0
+   !define ZONE_HSM_COLOR #FFF8DC
+   !define ZONE_AIRGAP_COLOR #F5F5F5
+   !define ZONE_MGMT_COLOR #F5F5DC
+   !define ZONE_LOG_COLOR #FFFACD
+   !define ZONE_BACKUP_COLOR #F0F8FF
+
+   skinparam rectangle {
+      BackgroundColor #FFFFFF
+      BorderColor #000000
+   }
+
+   skinparam rectangle&lt;&lt;zone&gt;&gt; {
+      BorderStyle dashed
+      BorderThickness 2
+   }
+
+   title EJBCA Enterprise Threat Model - Luna S790 HSM &amp; MariaDB Enterprise on RHEL 8
+
+   ' Network Security Zones
+   rectangle &quot;SZ-L1-01: Internet/Public Zone&quot; &lt;&lt;zone&gt;&gt; as INTERNET ZONE_PUBLIC_COLOR{
+      component &quot;IC-017: End User Device&quot; as CLIENT
+      component &quot;EP-001: Public Access&quot; as PUBLIC_EP
+   }
+
+   rectangle &quot;SZ-L1-02: DMZ Zone&quot; &lt;&lt;zone&gt;&gt; as DMZ ZONE_DMZ_COLOR {
+      component &quot;IC-001: Load Balancer&quot; as LB {
+          portin &quot;8080: HTTP&quot;
+          portin &quot;8442: HTTPS&quot;
+          portin &quot;8443: HTTPS Admin&quot;
+      }
+      component &quot;IC-002: WAF&quot; as WAF {
+          note right : **Entry Points:**\nEP-002: Admin UI (8443/HTTPS)\nEP-003: SCEP (8080/HTTP)\nEP-004: CMP (8080/HTTP)\nEP-005: EST (8443/HTTPS)\nEP-006: ACME (8080/HTTP)\nEP-007: REST API (8443/HTTPS)\nEP-008: SO
+      }
+   }
+
+   rectangle &quot;SZ-L1-03: Application Zone&quot; &lt;&lt;zone&gt;&gt; as APP_ZONE ZONE_APP_COLOR {
+     
+      component &quot;IC-003: JBoss EAP Primary&quot; as EJBCA1 {
+          portin &quot;AC-001: Admin UI (8443/HTTPS)&quot;
+          portin &quot;AC-002: Public UI (8080/HTTP, 8442/HTTPS)&quot; 
+          portin &quot;AC-003: SCEP Protocol (8080/HTTP)&quot;
+          portin &quot;AC-004: CMP Protocol (8080/HTTP)&quot;
+          portin &quot;AC-005: EST Protocol (8443/HTTPS)&quot;
+          portin &quot;AC-006: ACME Protocol (8080/HTTP)&quot;
+          portin &quot;AC-007: REST API (8443/HTTPS)&quot;
+          portin &quot;AC-008: SOAP Web Services (8443/HTTPS)&quot;
+          storage &quot;AS-004: DB Passwords&quot;
+          storage &quot;AS-005: HSM Passwords&quot;
+          storage &quot;AL-002: JBoss System Logs&quot;
+          note bottom : **CRITICAL:** Requires FIPS Mode\nfor Java crypto providers\nJBoss EAP 7.4+ (PC-011, PC-013)
+      }
+     
+      component &quot;IC-004: JBoss EAP Secondary&quot; as EJBCA2 {
+          portin &quot;AC-001: Admin UI (8443/HTTPS)&quot;
+          portin &quot;AC-002: Public UI (8080/HTTP, 8442/HTTPS)&quot;
+          portin &quot;AC-003: SCEP Protocol (8080/HTTP)&quot;
+          portin &quot;AC-004: CMP Protocol (8080/HTTP)&quot;
+          portin &quot;AC-005: EST Protocol (8443/HTTPS)&quot;
+          portin &quot;AC-006: ACME Protocol (8080/HTTP)&quot;
+          portin &quot;AC-007: REST API (8443/HTTPS)&quot;
+          portin &quot;AC-008: SOAP Web Services (8443/HTTPS)&quot;
+          storage &quot;AS-004: DB Passwords&quot;
+          storage &quot;AS-005: HSM Passwords&quot;
+          storage &quot;AL-002: JBoss System Logs&quot;
+          note bottom : **CRITICAL:** Requires FIPS Mode\nfor Java crypto providers\nJBoss EAP 7.4+ (PC-011, PC-013)
+      }
+     
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow04.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow06.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow05.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow07.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE>      component &quot;IC-011: External RA&quot; as EXT_RA {
+          portin &quot;AC-014: RA Interface (8443/HTTPS)&quot;
+          portin &quot;AC-003: SCEP Proxy (8080/HTTP)&quot;
+          portin &quot;AC-004: CMP Proxy (8080/HTTP)&quot;
+          storage &quot;AS-011: RA Credentials&quot;
+      }
+     
+      component &quot;IC-012: OCSP Responder&quot; as OCSP {
+          portin &quot;AC-009: OCSP Service (8080/HTTP)&quot;
+          storage &quot;AL-006: OCSP Transaction Logs&quot;
+      }
+     
+      component &quot;IC-016: Certificate Repository&quot; as CERT_REPO {
+          portin &quot;AC-015: LDAP Publisher (389/LDAP, 636/LDAPS)&quot;
+          portin &quot;AC-010: CRL Distribution (8080/HTTP)&quot;
+          storage &quot;AS-012: LDAP Bind Credentials&quot;
+      }
+   }
+
+   rectangle &quot;SZ-L1-04: Database Zone&quot; &lt;&lt;zone&gt;&gt; as DB_ZONE ZONE_DB_COLOR {
+      database &quot;IC-005: MariaDB Enterprise Primary&quot; as DB1 {
+          portin &quot;3306/TCP: MySQL Protocol&quot;
+          storage &quot;AD-001-010: PKI Data&quot;
+          storage &quot;AL-001: Audit Logs&quot;
+          storage &quot;AL-003: MariaDB Logs&quot;
+          storage &quot;AS-007: DB Encryption Keys&quot;
+          note bottom : **CRITICAL:** Requires FIPS Mode\nfor encryption-at-rest\n(PC-012, PC-014)
+      }
+     
+      database &quot;IC-006: MariaDB Enterprise Secondary&quot; as DB2 {
+          portin &quot;3306/TCP: MySQL Protocol&quot;
+          storage &quot;AD-001-010: PKI Data (Replica)&quot;
+          storage &quot;AL-001: Audit Logs (Replica)&quot;
+          storage &quot;AL-003: MariaDB Logs&quot;
+          note bottom : **CRITICAL:** Requires FIPS Mode\nfor encryption-at-rest\n(PC-012, PC-014)
+      }
+     
+      note right of DB1 : **EP-009: Database Port (3306/TCP)**\n(Critical Entry Point)
+   }
+
+   rectangle &quot;SZ-L1-05: HSM Zone&quot; &lt;&lt;zone&gt;&gt; as HSM_ZONE  ZONE_HSM_COLOR {
+      component &quot;IC-007: Luna S790 Issuing CA HSM&quot; as HSM1 {
+          portin &quot;1792/TCP: Luna Network&quot;
+          portin &quot;22/SSH: HSM Admin&quot;
+          portin &quot;443/HTTPS: Luna Web UI&quot;
+          storage &quot;AS-002: Issuing CA Keys&quot;
+          storage &quot;AS-003: OCSP Signing Keys&quot;
+          storage &quot;AS-007: DB Encryption Keys&quot;
+          storage &quot;AL-004: HSM Audit Logs&quot;
+      }
+     
+      component &quot;IC-008: Luna S790 Backup HSM&quot; as HSM2 {
+          portin &quot;1792/TCP: Luna Network&quot;
+          portin &quot;22/SSH: HSM Admin&quot;
+          portin &quot;443/HTTPS: Luna Web UI&quot;
+          storage &quot;AS-002: Issuing CA Keys (Backup)&quot;
+          storage &quot;AS-003: OCSP Keys (Backup)&quot;
+          storage &quot;AS-010: Backup Encryption Keys&quot;
+          storage &quot;AL-004: HSM Audit Logs&quot;
+      }
+     
+      note right of HSM1 : **EP-010: HSM Network (1792/TCP)**\n(Critical Entry Point)\nFIPS 140-2 Level 3
+   }
+
+   rectangle &quot;SZ-L1-06: Air-Gapped Root CA Zone&quot; &lt;&lt;zone&gt;&gt; as AIRGAP_ZONE ZONE_AIRGAP_COLOR {
+      component &quot;IC-009: Air-Gapped JBoss EAP Root CA&quot; as ROOT_CA {
+          storage &quot;AD-003: Root CA Configuration&quot;
+          storage &quot;AL-009: Root CA Audit Logs&quot;
+          note bottom : **OFFLINE:** Key ceremonies only\nNo network connectivity
+      }
+     
+      component &quot;IC-010: Luna S790 Root CA HSM&quot; as ROOT_HSM {
+          storage &quot;AS-001: Root CA Private Keys&quot;
+          storage &quot;AS-013: Ceremony Keys&quot;
+          storage &quot;AL-004: Root HSM Audit Logs&quot;
+          note right : **AIR-GAPPED**\nPhysically isolated\nFIPS 140-2 Level 3
+      }
+   }
+
+   rectangle &quot;SZ-L1-07: Management Zone&quot; &lt;&lt;zone&gt;&gt; as MGMT_ZONE ZONE_MGMT_COLOR {
+      component &quot;IC-013: Admin Workstation&quot; as ADMIN_WS {
+          storage &quot;AS-006: Admin Client Certificates&quot;
+          storage &quot;AL-008: Authentication Logs&quot;
+          note right : **EP-011: SSH (22/TCP)**\n**EP-012: SNMP (161/UDP)**\n**EP-013: HTTPS Admin (8443/TCP)**
+      }
+   }
+
+   rectangle &quot;SZ-L1-08: Log Collection Zone&quot; &lt;&lt;zone&gt;&gt; as LOG_ZONE ZONE_LOG_COLOR {
+      component &quot;IC-014: SIEM Server&quot; as SIEM {
+          portin &quot;514/UDP: Syslog&quot;
+          portin &quot;6514/TCP: Syslog over TLS&quot;
+          storage &quot;AL-001-010: Aggregated Logs&quot;
+          portin &quot;DC-001-010: Detective Controls&quot;
+      }
+   }
+
+   rectangle &quot;SZ-L1-09: Backup Zone&quot; &lt;&lt;zone&gt;&gt; as BACKUP_ZONE ZONE_BACKUP_COLOR {
+      component &quot;IC-015: Backup Server&quot; as BACKUP {
+          portin &quot;22/SSH: Backup Admin&quot;
+          portin &quot;443/HTTPS: Backup UI&quot;
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow05.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow07.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow06.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow08.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE>          storage &quot;AS-010: Backup Encryption Keys&quot;
+          storage &quot;AD-001-010: Backup Data&quot;
+          storage &quot;AL-001-010: Log Archives&quot;
+      }
+   }
+
+   ' Network connections and data flows
+   CLIENT --&gt; PUBLIC_EP : **Certificate Requests**\n(SCEP, CMP, EST, ACME, OCSP)
+   PUBLIC_EP --&gt; LB : **Load Balanced Traffic**\n(8080, 8442, 8443)
+   LB --&gt; WAF : **Filtered Traffic**\n(HTTP/HTTPS)
+   WAF --&gt; EJBCA1 : **8080/HTTP, 8442/HTTPS, 8443/HTTPS**
+   WAF --&gt; EJBCA2 : **8080/HTTP, 8442/HTTPS, 8443/HTTPS**
+
+   ' Application to database connections (EX-001)
+   EJBCA1 --&gt; DB1 : **EX-001: MariaDB (3306/TCP)**\n(AD-001-010, AL-001)
+   EJBCA2 --&gt; DB1 : **EX-001: MariaDB (3306/TCP)**\n(AD-001-010, AL-001)
+   EJBCA1 -.-&gt; DB2 : **Failover (3306/TCP)**
+   EJBCA2 -.-&gt; DB2 : **Failover (3306/TCP)**
+
+   ' HSM connections (EX-002) - Online Issuing CA HSMs
+   EJBCA1 --&gt; HSM1 : **EX-002: PKCS#11 (1792/TCP)**\n(AS-002-003, AS-007)
+   EJBCA2 --&gt; HSM1 : **EX-002: PKCS#11 (1792/TCP)**\n(AS-002-003, AS-007)
+   EJBCA1 -.-&gt; HSM2 : **Backup HSM (1792/TCP)**
+   EJBCA2 -.-&gt; HSM2 : **Backup HSM (1792/TCP)**
+
+   ' Air-gapped Root CA relationships (No network connection)
+   ROOT_CA -.-&gt; ROOT_HSM : **Physical Access Only**\n(AS-001, AS-013)
+   ROOT_CA -.-&gt; EJBCA1 : **Certificate Chain**\n(Manual USB transfer)
+
+   ' External RA communication (EX-006)
+   EJBCA1 --&gt; EXT_RA : **EX-006: Peer Protocol (8443/HTTPS)**\n(AS-011)
+   EJBCA2 --&gt; EXT_RA : **EX-006: Peer Protocol (8443/HTTPS)**\n(AS-011)
+
+   ' Certificate publishing (EX-003)
+   EJBCA1 --&gt; CERT_REPO : **EX-003: LDAP/HTTP (389/636/8080)**\n(AS-012)
+   EJBCA2 --&gt; CERT_REPO : **EX-003: LDAP/HTTP (389/636/8080)**\n(AS-012)
+
+   ' OCSP service
+   EJBCA1 --&gt; OCSP : **Certificate Status Updates**
+   EJBCA2 --&gt; OCSP : **Certificate Status Updates**
+   OCSP --&gt; CLIENT : **EX-007: OCSP Responses (8080/HTTP)**
+
+   ' Log shipping (EX-004)
+   EJBCA1 --&gt; SIEM : **EX-004: Syslog (6514/TCP)**\n(AL-002, AL-005)
+   EJBCA2 --&gt; SIEM : **EX-004: Syslog (6514/TCP)**\n(AL-002, AL-005)
+   DB1 --&gt; SIEM : **EX-004: DB Logs (6514/TCP)**\n(AL-003)
+   HSM1 --&gt; SIEM : **EX-004: HSM Logs (6514/TCP)**\n(AL-004)
+
+   ' Admin access
+   ADMIN_WS --&gt; WAF : **EP-002: Admin Access (8443/HTTPS)**\n(AS-006)
+   ADMIN_WS --&gt; EJBCA1 : **EP-011: SSH Management (22/TCP)**
+   ADMIN_WS --&gt; EJBCA2 : **EP-011: SSH Management (22/TCP)**
+   ADMIN_WS -.-&gt; ROOT_CA : **Physical Access**\n(Key ceremonies only)
+
+   ' Backup operations (EX-005)
+   DB1 --&gt; BACKUP : **EX-005: MariaDB Backup**\n(AD-001-010, AL-001-003)
+   HSM1 --&gt; BACKUP : **EX-005: HSM Key Backup**\n(AS-002-003, AS-007)
+   ROOT_HSM -.-&gt; BACKUP : **Secure Key Export (Physical)**\n(AS-001, AS-013)
+
+   ' Database replication
+   DB1 --&gt; DB2 : **Master-Slave Replication (3306/TCP)**\n(AD-001-010, AL-001)
+
+   ' HSM failover
+   HSM1 -.-&gt; HSM2 : **HA Configuration (1792/TCP)**\n(AS-002-003)
+
+   ' Threat vectors and entry points
+   note right of PUBLIC_EP : **Entry Points Summary:**\n* EP-001: Public Web (8080/8442)\n* EP-003: SCEP (8080/HTTP)\n* EP-004: CMP (8080/HTTP)\n* EP-005: EST (8443/HTTPS)\n* EP-006: ACME (8080/HTTP)\n* EP-007: REST AP
+   note right of DB1 : **Critical Database Entry:**\n* EP-009: MariaDB (3306/TCP)\n* Highly Restricted Access
+   note right of HSM1 : **HSM Network Entry:**\n* EP-010: Luna NTLS (1792/TCP)\n* FIPS 140-2 Level 3 Protection
+   note right of ROOT_CA : **Ultimate Security:**\n* Air-gapped Root CA\n* Physical access only\n* No network entry points
+
+   ' Legend
+   legend bottom
+   |= Color |= Security Zone |= Risk Level |= **Key Ports** |
+   | &lt;color:ZONE_PUBLIC_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | Internet/Public | High | 80, 443 |
+   | &lt;color:ZONE_DMZ_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | DMZ | Medium | 8080, 8442, 8443 |
+   | &lt;color:ZONE_APP_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | Application | Medium-High | 8080, 8443, 389, 636 |
+   | &lt;color:ZONE_DB_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | Database | High | **3306** |
+   | &lt;color:ZONE_HSM_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | HSM | Maximum | **1792**, 22, 443 |
+   | &lt;color:ZONE_AIRGAP_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | Air-Gapped Root CA | Maximum | **None** |
+   | &lt;color:ZONE_MGMT_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | Management | High | 22, 161, 8443 |
+   | &lt;color:ZONE_LOG_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | Logging | Medium | 514, 6514 |
+   | &lt;color:ZONE_BACKUP_COLOR&gt;&#x2588;&#x2588;&lt;/color&gt; | Backup | Medium | 22, 443 |
+
+   **EJBCA Protocol Entry Points (Total: 8 distinct entry points):**
+   | **Port** | **Protocol** | **Purpose** | **Authentication** |
+   | 8080/HTTP | SCEP, CMP, ACME, Public UI, OCSP, CRL | Public enrollment/validation | Challenge/Anonymous |
+   | 8442/HTTPS | Public UI (TLS) | Secure public enrollment | TLS + Challenge |
+   | 8443/HTTPS | Admin UI, EST, REST API, SOAP WS | Administrative/secure protocols | Client certificates |
+
+   **PlantUML Version:** %version()
+   endlegend
+
+   @enduml
+
+
+ <B><a name="t107">9</a>. Threat Analysis with STRIDE Methodology</B>
+ <B><a name="t108">T</a>-001: Spoofing of PKI Administrator Identity</B>
+ <B>Summary:</B> Attacker impersonates legitimate PKI administrator to gain unauthorized access to CA operations, potentially compromising certificate issuance integrity and confidentiality of administrative functions.
+ <B>Assets Affected:</B> AS-006 (Admin Client Certificates), AD-003 (CA Configuration), AS-001-002 (CA Private Keys)
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow06.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow08.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow07.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow09.html">Next -&gt;</a>
+</SMALL></CENTER>
+<PRE> <B>Given</B> IC-013 (Admin Workstation) is being targeted
+ <B>And</B> weak certificate storage or password policies exist
+ <B>When</B> attacker steals or duplicates admin client certificate
+ <B>Then</B> AS-006 can be compromised (confidentiality)
+ <B>Then</B> AD-003 can be modified (integrity)
+ <B>Then</B> TA0001.T1078 Valid Accounts
+ <B>Then</B> TA0001.T1552 Unsecured Credentials
+ <B><a name="t109">T</a>-002: Tampering with Database Integrity Protection</B>
+ <B>Summary:</B> Malicious database administrator or attacker with database access attempts to modify audit logs or certificate data, compromising integrity and enabling non-repudiation violations.
+ <B>Assets Affected:</B> AL-001 (Security Audit Logs), AD-005 (Certificate Records), AS-007 (Database Encryption Keys)
+ <B>Given</B> IC-005 (MariaDB Primary) database server
+ <B>And</B> insufficient separation of duties between DBA and PKI operators
+ <B>When</B> privileged user directly modifies database tables
+ <B>Then</B> AL-001 can be tampered with (integrity)
+ <B>Then</B> AD-005 can be falsified (integrity)
+ <B>Then</B> TA0005.T1565 Data Manipulation
+ <B>Then</B> TA0005.T1070 Indicator Removal on Host
+ <B><a name="t110">T</a>-003: Repudiation of Certificate Issuance Events</B>
+ <B>Summary:</B> Administrator or automated process denies performing certificate issuance or revocation actions, exploiting gaps in audit logging or authentication mechanisms.
+ <B>Assets Affected:</B> AL-001 (Security Audit Logs), AD-005 (Certificate Records), AS-009 (Authentication Tokens)
+ <B>Given</B> AC-001-002 (EJBCA Web Interfaces) processing certificate requests
+ <B>And</B> insufficient binding between authentication and audit events
+ <B>When</B> administrator performs unauthorized certificate operations
+ <B>Then</B> AL-001 may lack sufficient detail (availability)
+ <B>Then</B> AD-005 operations become non-repudiable
+ <B>Then</B> TA0005.T1070 Indicator Removal on Host
+ <B><a name="t111">T</a>-004: Information Disclosure through Protocol Downgrade</B>
+ <B>Summary:</B> Attacker forces use of weaker enrollment protocols or cryptographic algorithms to intercept or modify certificate requests, exposing sensitive enrollment data.
+ <B>Assets Affected:</B> AS-004 (Database Passwords), AD-009 (User Entity Data), AS-008 (TLS Server Certificates)
+ <B>Given</B> AC-003-006 (Protocol Handlers) accepting multiple enrollment methods
+ <B>And</B> insufficient protocol security validation
+ <B>When</B> man-in-the-middle attacker downgrades connection security
+ <B>Then</B> AS-004 can be exposed during transmission (confidentiality)
+ <B>Then</B> AD-009 can be intercepted (confidentiality)
+ <B>Then</B> TA0006.T1557 Adversary-in-the-Middle
+ <B>Then</B> TA0009.T1040 Network Sniffing
+ <B><a name="t112">T</a>-005: Denial of Service against HSM Operations</B>
+ <B>Summary:</B> Attacker overwhelms HSM with cryptographic requests or exploits HSM partition limits to prevent legitimate certificate signing operations.
+ <B>Assets Affected:</B> AS-001-003 (CA Private Keys), IC-007-008 (Luna S790 HSMs), AC-012 (HSM PKCS#11 Interface)
+ <B>Given</B> IC-007 (Luna S790 HSM Primary) handling signing requests
+ <B>And</B> insufficient rate limiting on cryptographic operations
+ <B>When</B> attacker floods HSM with signing requests
+ <B>Then</B> AS-001-003 become unavailable (availability)
+ <B>Then</B> legitimate certificate operations fail (availability)
+ <B>Then</B> TA0040.T1499 Endpoint Denial of Service
+ <B>Then</B> TA0040.T1498 Network Denial of Service
+ <B><a name="t113">T</a>-006: Elevation of Privilege through RBAC Bypass</B>
+ <B>Summary:</B> Authenticated user with limited permissions exploits application vulnerabilities to gain higher-level PKI administrative privileges.
+ <B>Assets Affected:</B> AD-004 (Role Definitions), AS-006 (Admin Client Certificates), AD-003 (CA Configuration)
+ <B>Given</B> AC-001 (EJBCA Admin UI) with role-based access controls
+ <B>And</B> vulnerable privilege escalation vectors exist
+ <B>When</B> authenticated user exploits application flaws
+ <B>Then</B> AD-004 can be modified (integrity)
+ <B>Then</B> unauthorized access to AS-006 functions (confidentiality)
+ <B>Then</B> TA0004.T1068 Exploitation for Privilege Escalation
+ <B>Then</B> TA0003.T1078 Valid Accounts
+ <B><a name="t114">T</a>-007: Spoofing of Certificate Authority</B>
+ <B>Summary:</B> Attacker creates or imports malicious root CA certificate to issue unauthorized certificates that appear legitimate to trusting applications.
+ <B>Assets Affected:</B> AS-001 (Root CA Private Keys), AD-003 (CA Configuration), AD-005 (Certificate Records)
+ <B>Given</B> IC-003-004 (EJBCA Application Servers) managing CA certificates
+ <B>And</B> insufficient validation of CA certificate imports
+ <B>When</B> attacker injects malicious CA certificate
+ <B>Then</B> AS-001 trust model is compromised (integrity)
+ <B>Then</B> fraudulent certificates appear legitimate (integrity)
+ <B>Then</B> TA0003.T1608 Stage Capabilities
+ <B>Then</B> TA0003.T1535 Unused/Unsupported Cloud Regions
+ <B><a name="t115">T</a>-008: Tampering with HSM Network Communication</B>
+ <B>Summary:</B> Attacker with network access intercepts or modifies PKCS#11 communications between EJBCA and HSM, potentially extracting cryptographic material or altering signing operations.
+ <B>Assets Affected:</B> AS-001-003 (CA Private Keys), AS-005 (HSM Partition Passwords), AC-012 (HSM PKCS#11 Interface)
+ <B>Given</B> SZ-L1-05 (HSM Zone) network communications
+ <B>And</B> insufficient NTLS/TLS protection on HSM channels
+ <B>When</B> network-positioned attacker intercepts HSM traffic
+ <B>Then</B> AS-005 can be captured (confidentiality)
+ <B>Then</B> cryptographic operations can be altered (integrity)
+ <B>Then</B> TA0006.T1557 Adversary-in-the-Middle
+ <B>Then</B> TA0009.T1040 Network Sniffing
+ <B><a name="t116">T</a>-009: Information Disclosure through Log Aggregation</B>
+ <B>Summary:</B> SIEM or log management system with excessive privileges exposes sensitive PKI data contained in audit logs to unauthorized personnel.
+ <B>Assets Affected:</B> AL-001-010 (All Log Assets), AD-009 (User Entity Data), AS-004 (Database Passwords)
+ <B>Given</B> IC-014 (SIEM Server) collecting comprehensive logs
+ <B>And</B> logs contain sensitive data without proper sanitization
+ <B>When</B> SIEM administrator or breach exposes log data
+ <B>Then</B> AL-001-010 reveal sensitive information (confidentiality)
+ <B>Then</B> AD-009 can be extracted from logs (confidentiality)
+ <B>Then</B> TA0009.T1213 Data from Information Repositories
+ <B>Then</B> TA0010.T1005 Data from Local System
+ <B><a name="t117">T</a>-010: Denial of Service through Database Resource Exhaustion</B>
+ <B>Summary:</B> Attacker exhausts database resources through excessive certificate enrollment requests or audit log generation, preventing legitimate PKI operations.
+ <B>Assets Affected:</B> IC-005-006 (MariaDB Servers), AD-001-010 (PKI Data), AL-001-003 (Database Logs)
+ <B>Given</B> IC-005 (MariaDB Primary) handling PKI transactions
+ <B>And</B> insufficient database connection and resource limits
+ <B>When</B> attacker generates massive enrollment or audit events
+ <B>Then</B> AD-001-010 become inaccessible (availability)
+ <B>Then</B> legitimate PKI operations fail (availability)
+ <B>Then</B> TA0040.T1499 Endpoint Denial of Service
+ <B>Then</B> TA0040.T1496 Resource Hijacking
+ <B><a name="t118">T</a>-011: Cryptographic Weakness due to Non-FIPS JBoss EAP</B>
+ <B>Summary:</B> JBoss EAP application server running without FIPS mode provides insufficient entropy guarantees for cryptographic operations, potentially generating weak random numbers used in certificate serial numbers, nonces, and
+ session keys.
+ <B>Assets Affected:</B> AS-008 (TLS Server Certificates), AS-009 (Authentication Tokens), AD-005 (Certificate Records), AS-004 (Database Passwords)
+ <B>Given</B> IC-003-004 (EJBCA Application Servers) running JBoss EAP without FIPS 140-2 mode
+ <B>And</B> Java SecureRandom not using validated entropy sources
+ <B>When</B> application generates cryptographic material or random values
+ <B>Then</B> AS-008 may have predictable private keys (integrity/confidentiality)
+ <B>Then</B> AS-009 tokens become guessable (confidentiality)
+ <B>Then</B> AD-005 certificate serial numbers may be predictable (integrity)
+
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow07.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+ &nbsp; <A HREF="EJBCA Enterprise Deployment Architecture - Claude wow09.html">Next -&gt;</a>
+</SMALL></CENTER>
+</PRE>
+<CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow08.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+</SMALL></CENTER>
+<PRE> <B>Then</B> TA0006.T1600 Weaken Encryption
+ <B>Then</B> TA0006.T1552 Unsecured Credentials
+ <B><a name="t119">T</a>-012: Database Encryption Weakness due to Non-FIPS MariaDB</B>
+ <B>Summary:</B> MariaDB Enterprise running without FIPS mode uses non-validated cryptographic modules for data-at-rest encryption and SSL/TLS connections, potentially compromising database encryption keys and reducing effective
+ key space.
+ <B>Assets Affected:</B> AS-007 (Database Encryption Keys), AS-004 (Database Passwords), AL-001 (Security Audit Logs), AD-001-010 (All PKI Data)
+ <B>Given</B> IC-005-006 (MariaDB Servers) operating without FIPS 140-2 validated crypto modules
+ <B>And</B> encryption-at-rest using non-validated random number generators
+ <B>When</B> database generates encryption keys or initialization vectors
+ <B>Then</B> AS-007 may have reduced entropy (confidentiality)
+ <B>Then</B> AS-004 SSL/TLS connections use weak keys (confidentiality)
+ <B>Then</B> AL-001 integrity protection compromised (integrity)
+ <B>Then</B> AD-001-010 encrypted data vulnerable to cryptanalysis (confidentiality)
+ <B>Then</B> TA0006.T1600 Weaken Encryption
+ <B>Then</B> TA0009.T1040 Network Sniffing
+ <B><a name="t120">T</a>-013: Key Space Reduction through Poor Entropy Management</B>
+ <B>Summary:</B> Combined effect of non-FIPS JBoss EAP and MariaDB creates systemic cryptographic weakness where multiple components use insufficient entropy sources, dramatically reducing effective key space and enabling
+ cryptanalytic attacks.
+ <B>Assets Affected:</B> AS-001-012 (All Secret Assets), AD-005 (Certificate Records), AL-001 (Security Audit Logs)
+ <B>Given</B> IC-003-006 (All Application and Database Components) lacking FIPS entropy validation
+ <B>And</B> multiple systems sharing poor entropy sources
+ <B>When</B> cryptographic operations occur across the PKI infrastructure
+ <B>Then</B> AS-001-012 effective key space is significantly reduced (confidentiality/integrity)
+ <B>Then</B> AD-005 certificate cryptographic binding weakened (integrity)
+ <B>Then</B> AL-001 audit log signatures become forgeable (integrity)
+ <B>Then</B> TA0006.T1600 Weaken Encryption
+ <B>Then</B> TA0006.T1556 Modify Authentication Process
+ <B><a name="t121">T</a>-014: Air-Gapped Root CA Physical Compromise</B>
+ <B>Summary:</B> Attacker gains physical access to air-gapped Root CA infrastructure during key ceremonies or maintenance, potentially compromising the ultimate trust anchor of the entire PKI.
+ <B>Assets Affected:</B> AS-001 (Root CA Private Keys), AS-013 (Root CA Ceremony Keys), IC-009 (Air-Gapped Root CA Server), IC-010 (Luna S790 Root CA HSM)
+ <B>Given</B> IC-009-010 (Air-Gapped Root CA Infrastructure) during key ceremony operations
+ <B>And</B> insufficient physical security controls or insider threats
+ <B>When</B> attacker gains physical access to air-gapped facility
+ <B>Then</B> AS-001 ultimate PKI trust anchor compromised (integrity/confidentiality)
+ <B>Then</B> AS-013 ceremony credentials exposed (confidentiality)
+ <B>Then</B> entire PKI hierarchy becomes untrustworthy (integrity)
+ <B>Then</B> TA0001.T1200 Hardware Additions
+ <B>Then</B> TA0003.T1608 Stage Capabilities
+ <B><a name="t122">R</a>eferences</B>
+    <a href="https://docs.keyfactor.com/ejbca/latest/">EJBCA Documentation</a>
+    <a href="https://www.thalesdocs.com/gphsm/integrations/guides/ejbca/">Thales Luna HSM Integration Guide</a>
+    <a href="https://mariadb.com/docs/security/">MariaDB Enterprise Security</a>
+    <a href="https://mariadb.com/kb/en/fips/">MariaDB FIPS Mode Configuration</a>
+    <a href="https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/security_hardening/">RHEL 8 Security Hardening</a>
+    <a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html/security_hardening/using-the-system-wide-cryptographic-policies_security-hardening">RHEL 8 FIPS Mode</a>
+    <a href="https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.4/html/configuration_guide/">JBoss EAP 7.4 Administration Guide</a>
+    <a href="https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.4/html/how_to_configure_server_security/">JBoss EAP Security Configuration</a>
+    <a href="https://docs.oracle.com/en/java/javase/11/security/java-pki-programmers-guide.html">Java FIPS 140-2 Cryptographic Providers</a>
+    <a href="https://attack.mitre.org/">MITRE ATT&amp;CK Framework</a>
+    <a href="https://docs.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats">STRIDE Threat Modeling</a>
+ <B><a name="t124">C</a>ritical FIPS Mode Configuration Notes</B>
+ <B>JBoss EAP FIPS Requirements:</B>
+    Configure Java security providers to use FIPS 140-2 validated cryptographic modules
+    Enable NSS FIPS mode for TLS/SSL operations in JBoss EAP 7.4+
+    Validate entropy sources meet FIPS 140-2 requirements
+    Configure SecureRandom to use hardware entropy when available
+    <a name="t125">S</a>et system property  -Dcom.redhat.fips=true  for JBoss EAP FIPS mode
+ <B>MariaDB FIPS Requirements:</B>
+    Enable FIPS mode for encryption-at-rest (InnoDB encryption)
+    Configure SSL/TLS to use FIPS validated cipher suites only
+    Use FIPS validated random number generators for key generation
+    Ensure all cryptographic operations use FIPS approved algorithms
+
+
+</PRE><CENTER><SMALL><A HREF="EJBCA Enterprise Deployment Architecture - Claude wow08.html">&lt;- Previous</a> &nbsp; 
+<A HREF="EJBCA Enterprise Deployment Architecture - Claude wow01.html">First</a>
+</SMALL></CENTER>
+</PRE>
+<a name="toc"><h2>Bookmarks</h2></a>
+<small>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t22">EJBCA Enterprise Threat Model Analysis</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t23">Luna S790 HSM &amp; MariaDB Enterprise on RHEL 8</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t24">Executive Summary</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t25">1. Network Security Zones (SZ-L1-#)</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t26">Zone ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t27">Zone Name Purpose</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t28">Security Level Network Segment</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t29">2. Infrastructure and Middleware Components (IC-#)</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t30">Component ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t31">Component Name Description</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t32">Deployed Zone</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t33">Technology Stack</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t34">3. Application Components (AC-#)</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t35">Component ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t36">Component Name Description</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t37">Host Component</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow01.html#t38">Port/Protocol</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t39">Component ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t40">Component Name Description</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t41">Host Component</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t42">Port/Protocol</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t43">4. Entry and Exit Points</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t44">Entry Points</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t45">Entry Point ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t46">Name</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t47">Component Protocol Access Control</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t48">Risk Level</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t49">Exit Points</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t50">Exit Point ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t51">Name</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t52">Component Destination Protocol Purpose</a></LI>
+</UL>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t53">5. Data Assets</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t54">Regular Data Assets (AD-#)</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t55">Asset ID Asset Name</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t56">Description</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow02.html#t57">Storage Location Sensitivity</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t58">Asset ID Asset Name</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t59">Description</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t60">Storage Location Sensitivity</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t61">Secret Assets (AS-#)</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t62">Asset ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t63">Asset Name Description</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t64">Storage Location Protection Level</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t65">Log Assets (AL-#)</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t66">Asset ID Asset Name</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t67">Description</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t68">Storage Location Retention</a></LI>
+</UL>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t69">6. Misuse Cases</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t70">UC-001: Insider Root CA Key Compromise</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t71">UC-002: Database Injection Attack</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t72">UC-003: HSM Network Interception</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t73">UC-004: Certificate Authority Spoofing</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t74">UC-005: Audit Log Tampering</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow03.html#t75">UC-006: Protocol Downgrade Attack</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t76">UC-007: Cryptographic Weakness Exploitation</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t77">UC-008: Entropy Starvation Attack</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t78">UC-009: Air-Gapped Root CA Physical Infiltration</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t79">7. Security Controls</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t80">Preventive Controls</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t81">Control ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t82">Control Name Type</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t83">Expected from EJBCA</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t84">Implementation</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t85">CRITICAL</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t89">Detective Controls</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t90">Control</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t91">Expected from</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t92">Control Name Type</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t93">Implementation</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t94">ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t95">EJBCA</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t96">Corrective Controls</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t97">Control ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t98">Control Name Type</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t99">Expected from EJBCA</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow04.html#t100">Implementation</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow05.html#t101">Control ID</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow05.html#t102">Control Name Type</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow05.html#t103">Expected from EJBCA</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow05.html#t104">Implementation</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow05.html#t105">Dual Control Recommendations</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow05.html#t106">8. Deployment Diagram</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow07.html#t107">9. Threat Analysis with STRIDE Methodology</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow07.html#t108">T-001: Spoofing of PKI Administrator Identity</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t109">T-002: Tampering with Database Integrity Protection</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t110">T-003: Repudiation of Certificate Issuance Events</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t111">T-004: Information Disclosure through Protocol Downgrade</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t112">T-005: Denial of Service against HSM Operations</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t113">T-006: Elevation of Privilege through RBAC Bypass</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t114">T-007: Spoofing of Certificate Authority</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t115">T-008: Tampering with HSM Network Communication</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t116">T-009: Information Disclosure through Log Aggregation</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t117">T-010: Denial of Service through Database Resource Exhaustion</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow08.html#t118">T-011: Cryptographic Weakness due to Non-FIPS JBoss EAP</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow09.html#t119">T-012: Database Encryption Weakness due to Non-FIPS MariaDB</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow09.html#t120">T-013: Key Space Reduction through Poor Entropy Management</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow09.html#t121">T-014: Air-Gapped Root CA Physical Compromise</a></LI>
+</UL>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow09.html#t122">References</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow09.html#t123">Critical FIPS Mode Configuration Notes</a></LI>
+<UL><LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow09.html#t124">JBoss EAP FIPS Requirements:</a></LI>
+<LI><a href="EJBCA Enterprise Deployment Architecture - Claude wow09.html#t125">MariaDB FIPS Requirements:</a></LI>
+</UL>
+</UL>
+</UL>
+
+</small>
+<br><p><br><a href="EJBCA Enterprise Deployment Architecture - Claude wow-Cover.html">Cover Page</p>
+
+
+
+
